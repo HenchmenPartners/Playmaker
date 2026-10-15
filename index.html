@@ -1,0 +1,4055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Playmaker - Football Play Diagrammer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Oswald & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Dynamic Print Page Orientation Styling -->
+  <style id="printPageOrientationStyle">
+    @media print {
+      @page {
+        size: letter landscape;
+        margin: 0.3in;
+      }
+    }
+  </style>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-chalk {
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 0.05em;
+    }
+    canvas {
+      touch-action: none;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+
+    .play-card-item {
+      transition: transform 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+    }
+    .play-card-dragging {
+      opacity: 0.45 !important;
+      transform: scale(0.98);
+      border: 1px dashed #38bdf8 !important;
+      background: #082f49 !important;
+    }
+    .play-drag-over-top {
+      border-top: 2px solid #38bdf8 !important;
+      transform: translateY(2px);
+    }
+    .play-drag-over-bottom {
+      border-bottom: 2px solid #38bdf8 !important;
+      transform: translateY(-2px);
+    }
+    .drag-handle {
+      cursor: grab;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    @media print {
+      html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+        color: black !important;
+      }
+      header, aside, #bottomToolBar, #floatingCanvasControls, #mobileInspectorSheet,
+      #mobileRouteSheet, #mobileMenuModal, #newPlayModal, #saveAsModal, #saveFormationModal,
+      #jsonImportModal, #toastMessage, #activeToolHUD, #subToolbar, .no-print,
+      #printModalControls, #fieldViewContainer, #armBandViewContainer, #coachingNotesDrawer {
+        display: none !important;
+      }
+      #printModal {
+        position: static !important;
+        display: block !important;
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        inset: auto !important;
+      }
+      #printModalContent {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+      }
+      #printPreviewArea {
+        display: block !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+      
+      .print-grid-1up .print-play-card {
+        page-break-after: always;
+        break-after: page;
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        margin-bottom: 0 !important;
+        padding: 12px 16px !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .print-grid-2up {
+        display: block !important;
+        width: 100% !important;
+      }
+      .print-grid-2up .print-play-card {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        margin-bottom: 0.2in !important;
+        padding: 8px 12px !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .print-grid-2up .print-play-card:nth-child(2n) {
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .armband-print-sheet {
+        display: grid !important;
+        grid-template-columns: repeat(2, 3.75in) !important;
+        grid-template-rows: repeat(4, 2.35in) !important;
+        gap: 0.12in 0.18in !important;
+        justify-content: center !important;
+        align-content: start !important;
+        width: 100% !important;
+        page-break-after: always;
+        break-after: page;
+      }
+      .armband-card-print {
+        border: 1px dashed #64748b !important;
+        padding: 6px 8px !important;
+        background: white !important;
+        color: black !important;
+        box-sizing: border-box !important;
+        font-size: 8.5pt !important;
+        overflow: hidden !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen w-screen overflow-hidden">
+
+  <!-- Top Header -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 px-3 sm:px-5 flex items-center justify-between shrink-0 z-30 select-none">
+    <div class="flex items-center space-x-2 sm:space-x-3">
+      <button id="sidebarToggleBtn" class="lg:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95" title="Toggle Playbook Library">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-900/40">
+          <i class="fa-solid fa-football text-base"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-sm sm:text-base font-bold tracking-tight text-white leading-tight font-chalk">PLAYMAKER</h1>
+            <select id="activePlayTypeSelect" class="bg-sky-950/80 border border-sky-600/70 text-[10px] font-black uppercase rounded px-1.5 py-0.5 text-sky-300 focus:outline-none cursor-pointer" title="Change Play Scheme">
+              <option value="run">RUN</option>
+              <option value="pass">PASS</option>
+              <option value="rpo">RPO</option>
+              <option value="screen">SCREEN</option>
+            </select>
+          </div>
+          <span id="activePlayNameHeader" class="text-[11px] text-emerald-400 font-semibold truncate block max-w-[130px] sm:max-w-[200px]">Beast - Tank Wedge Right</span>
+        </div>
+      </div>
+
+      <div class="ml-2 sm:ml-4 bg-slate-950 p-0.5 rounded-lg border border-slate-800 flex items-center">
+        <button id="tabFieldBtn" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white shadow transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-chalkboard"></i>
+          <span class="hidden sm:inline">Field</span>
+        </button>
+        <button id="tabArmBandBtn" class="px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-id-card-clip"></i>
+          <span class="hidden sm:inline">Arm Band</span>
+          <span class="bg-amber-500/20 text-amber-400 text-[10px] px-1 rounded ml-1 font-bold">12</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Desktop Top Actions -->
+    <div class="hidden lg:flex items-center space-x-2">
+      <button id="headerNotesToggleBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95 relative" title="Toggle Coaching Notes">
+        <i class="fa-solid fa-clipboard-list text-amber-400"></i>
+        <span>Comments</span>
+        <span id="notesIndicatorDot" class="w-2 h-2 rounded-full bg-amber-400 hidden"></span>
+      </button>
+
+      <button id="newPlayBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95">
+        <i class="fa-solid fa-plus text-emerald-400"></i>
+        <span>New Play</span>
+      </button>
+      <button id="savePlayBtn" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95 shadow">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span>Save</span>
+      </button>
+      <button id="saveAsBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-400 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95">
+        <i class="fa-solid fa-copy"></i>
+        <span>Save As</span>
+      </button>
+      <button id="flipPlayBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" title="Flip Play Horizontally">
+        <i class="fa-solid fa-right-left text-sky-400"></i>
+        <span>Flip</span>
+      </button>
+
+      <div class="h-5 w-px bg-slate-800 mx-1"></div>
+
+      <button id="printPlaybookBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95">
+        <i class="fa-solid fa-print text-amber-400"></i>
+        <span>Print Book</span>
+      </button>
+      <button id="backupJsonBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" title="Download .json Playbook">
+        <i class="fa-solid fa-download text-indigo-400"></i>
+        <span>Backup</span>
+      </button>
+      <button id="openJsonBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" title="Open .json Playbook">
+        <i class="fa-solid fa-folder-open text-teal-400"></i>
+        <span>Open</span>
+      </button>
+    </div>
+
+    <!-- Mobile Top Actions -->
+    <div class="flex lg:hidden items-center space-x-1.5">
+      <button id="mobileNotesToggleBtn" class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-amber-400 flex items-center justify-center active:scale-95 relative" title="Coaching Comments">
+        <i class="fa-solid fa-clipboard-list text-xs"></i>
+        <span id="mobileNotesIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-amber-400 absolute top-1 right-1 hidden"></span>
+      </button>
+      <button id="mobileSaveBtn" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold flex items-center space-x-1 active:scale-95">
+        <i class="fa-solid fa-floppy-disk text-xs"></i>
+        <span>Save</span>
+      </button>
+      <button id="mobileMenuBtn" class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center active:scale-95">
+        <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- SIDEBAR: Formations & Plays -->
+    <aside id="sidebarDrawer" class="w-72 sm:w-80 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 absolute lg:static top-0 bottom-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-book-bookmark text-emerald-500"></i>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Playbook Library</span>
+        </div>
+        <button id="closeSidebarBtn" class="lg:hidden text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Formation Filter -->
+      <div class="p-3 bg-slate-950/70 border-b border-slate-800">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
+            <i class="fa-solid fa-filter text-sky-400"></i>
+            <span>Active Formation</span>
+          </label>
+          <button id="showAllPlaysBtn" class="text-[10px] text-sky-400 hover:text-sky-300 font-semibold transition underline">Show All</button>
+        </div>
+        <select id="formationFilterSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 font-medium">
+        </select>
+        <div id="formationFilterBanner" class="mt-2 text-[10px] text-slate-400 flex items-center justify-between bg-slate-900/90 px-2 py-1 rounded border border-slate-800">
+          <span>Filtering: <strong id="filterFormationNameText" class="text-emerald-400">All Formations</strong></span>
+          <span id="filteredPlaysCountBadge" class="bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded font-bold text-[9px]">5 plays</span>
+        </div>
+      </div>
+
+      <!-- Play List -->
+      <div class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-1.5">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Plays In Formation</h3>
+              <span class="text-[9px] text-slate-500 font-semibold">(Drag reorder)</span>
+            </div>
+            <button id="sidebarNewPlayBtn" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center space-x-1">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>New</span>
+            </button>
+          </div>
+          <div id="savedPlaysList" class="space-y-1.5">
+          </div>
+        </div>
+
+        <!-- Built-in & Custom Offensive Sets -->
+        <div class="pt-3 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Offensive Sets</h3>
+            <button id="saveAsFormationBtn" class="text-[11px] text-sky-400 hover:text-sky-300 font-bold flex items-center space-x-1" title="Save current alignment as new formation">
+              <i class="fa-solid fa-floppy-disk text-[10px]"></i>
+              <span>Save Set</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 mb-2.5 text-xs">
+            <button data-formation="iform_pro" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">I-Formation</div>
+              <div class="text-[10px] text-slate-400">21 Personnel</div>
+            </button>
+            <button data-formation="double_wing" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Double Wing</div>
+              <div class="text-[10px] text-slate-400">2TE 2WB Power</div>
+            </button>
+            <button data-formation="single_wing_beast" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-amber-300 text-[11px]">Single Wing "Beast"</div>
+              <div class="text-[10px] text-slate-400">Unbalanced Wedge</div>
+            </button>
+            <button data-formation="wing_t" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Wing-T</div>
+              <div class="text-[10px] text-slate-400">Delaware Hybrid</div>
+            </button>
+            <button data-formation="wishbone" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Wishbone</div>
+              <div class="text-[10px] text-slate-400">Triple Option 3-Back</div>
+            </button>
+            <button data-formation="pistol_diamond" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Pistol Diamond</div>
+              <div class="text-[10px] text-slate-400">3-Back Pistol</div>
+            </button>
+            <button data-formation="spread_2x2" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Spread 2x2</div>
+              <div class="text-[10px] text-slate-400">Open Gun</div>
+            </button>
+            <button data-formation="trips_right" class="formation-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition active:scale-95">
+              <div class="font-bold text-white text-[11px]">Trips Right</div>
+              <div class="text-[10px] text-slate-400">11 Personnel</div>
+            </button>
+          </div>
+
+          <div id="customFormationsContainer" class="space-y-1">
+          </div>
+        </div>
+
+        <!-- Defensive Schemes -->
+        <div class="pt-3 border-t border-slate-800">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Defensive Fronts</h3>
+          <div class="grid grid-cols-2 gap-1.5 text-xs">
+            <button id="def43Btn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+              <div class="font-bold text-red-400 text-[11px]">4-3 Cover 2</div>
+              <div class="text-[10px] text-slate-400">Base Over</div>
+            </button>
+            <button id="def34Btn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+              <div class="font-bold text-red-400 text-[11px]">3-4 Cover 3</div>
+              <div class="text-[10px] text-slate-400">Odd Front</div>
+            </button>
+            <button id="def53Btn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-amber-600/40 transition">
+              <div class="font-bold text-amber-400 text-[11px]">5-3 Stack</div>
+              <div class="text-[10px] text-slate-400">Youth Run Stop</div>
+            </button>
+            <button id="def62Btn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-amber-600/40 transition">
+              <div class="font-bold text-amber-400 text-[11px]">6-2 Wide</div>
+              <div class="text-[10px] text-slate-400">Goal / Short Ydg</div>
+            </button>
+            <button id="defNickelBtn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+              <div class="font-bold text-red-400 text-[11px]">Nickel 4-2-5</div>
+              <div class="text-[10px] text-slate-400">Pass Down</div>
+            </button>
+            <button id="defGoalLineBtn" class="def-btn text-left p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+              <div class="font-bold text-red-400 text-[11px]">Goal Line 6-5</div>
+              <div class="text-[10px] text-slate-400">Jumbo Front</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+
+    <!-- VIEW 1: FIELD CANVAS VIEW CONTAINER -->
+    <div id="fieldViewContainer" class="flex-1 flex flex-col h-full overflow-hidden relative">
+
+      <!-- Subheader Drawing Toolbar -->
+      <div id="subToolbar" class="h-12 bg-slate-900/95 border-b border-slate-800 px-2 sm:px-4 flex items-center justify-between shrink-0 select-none overflow-x-auto scrollbar-thin">
+        <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-emerald-600 text-white shadow" data-tool="select">
+            <i class="fa-solid fa-arrows-up-down-left-right"></i>
+            <span class="hidden sm:inline">Move</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="route" title="Draw Pass Route">
+            <i class="fa-solid fa-arrow-trend-up text-amber-400"></i>
+            <span>Route</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="block" title="Draw Blocking">
+            <i class="fa-solid fa-t text-blue-400 font-black"></i>
+            <span>Block</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="carrier" title="Draw Ball Carrier path">
+            <i class="fa-solid fa-football text-yellow-400"></i>
+            <span>Carrier</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="motion" title="Pre-Snap Motion (Dashed)">
+            <i class="fa-solid fa-ellipsis text-purple-400"></i>
+            <span class="hidden md:inline">Motion</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="motion_run" title="Motion then Run">
+            <i class="fa-solid fa-person-running text-fuchsia-400"></i>
+            <span class="hidden md:inline">Motion Run</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="rush" title="Defensive Blitz">
+            <i class="fa-solid fa-bolt text-red-400"></i>
+            <span class="hidden md:inline">Blitz</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="zone" title="Defensive Zone Coverage">
+            <i class="fa-regular fa-circle-dot text-cyan-400"></i>
+            <span class="hidden md:inline">Zone</span>
+          </button>
+          <button class="tool-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 sm:space-x-1.5 bg-slate-800 text-slate-300 hover:text-white border border-slate-700" data-tool="erase" title="Eraser">
+            <i class="fa-solid fa-eraser text-red-400"></i>
+            <span class="hidden md:inline">Erase</span>
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-1 sm:space-x-2 shrink-0 ml-2">
+          <button id="toolbarNotesToggleBtn" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold flex items-center space-x-1 transition active:scale-95" title="Coaching Notes">
+            <i class="fa-solid fa-comment-dots"></i>
+            <span class="hidden xl:inline">Notes</span>
+          </button>
+
+          <div class="hidden xl:flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+            <span class="text-slate-500 font-bold px-1 text-[10px]">O-LINE:</span>
+            <button id="quickPassProBtn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-semibold transition" title="Pass pro all linemen">Pass Pro</button>
+            <button id="quickRunBlockLeftBtn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold transition" title="Zone run blocks left">Zone L</button>
+            <button id="quickRunBlockRightBtn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold transition" title="Zone run blocks right">Zone R</button>
+            <button id="quickClearAllRoutesBtn" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-red-400 font-semibold transition" title="Clear routes">Clear All</button>
+          </div>
+
+          <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 space-x-1">
+            <button id="runPlayBtn" class="px-2.5 sm:px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition active:scale-95 flex items-center space-x-1">
+              <i class="fa-solid fa-play text-[10px]"></i>
+              <span class="hidden sm:inline">Run Play</span>
+            </button>
+            <button id="resetPlayBtn" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition active:scale-95" title="Reset Simulation">
+              <i class="fa-solid fa-rotate-left text-[10px]"></i>
+            </button>
+          </div>
+
+          <div class="hidden sm:flex bg-slate-950 p-1 rounded-lg border border-slate-800 items-center space-x-1 text-xs">
+            <button id="themeTurfBtn" class="px-2 py-1 rounded font-bold bg-emerald-700 text-white text-[11px]">Turf</button>
+            <button id="themeChalkboardBtn" class="px-2 py-1 rounded font-bold text-slate-400 hover:text-white text-[11px]">Chalk</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Field -->
+      <div id="canvasWrapper" class="flex-1 relative w-full h-full overflow-hidden bg-slate-950">
+        <canvas id="fieldCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+        <!-- COACHING COMMENTS DRAWER -->
+        <div id="coachingNotesDrawer" class="absolute top-12 right-2 sm:right-4 w-72 sm:w-96 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl p-3 shadow-2xl z-30 transition-all duration-200 hidden">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-clipboard-user text-amber-400 text-sm"></i>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Coaching Notes &amp; Rules</span>
+            </div>
+            <button id="closeNotesDrawerBtn" class="text-slate-400 hover:text-white p-1 text-xs">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="space-y-2">
+            <textarea id="playNotesTextarea" rows="4" placeholder="Add progression reads, blocking assignments, keys, or ball-carrier rules..." class="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none font-sans leading-relaxed"></textarea>
+            <div class="flex items-center justify-between pt-1">
+              <span id="notesCharCounter" class="text-[10px] text-slate-400">0 characters</span>
+              <div class="flex items-center space-x-2">
+                <button id="clearNotesBtn" class="text-[11px] text-slate-400 hover:text-red-400 font-semibold transition">Clear</button>
+                <button id="saveNotesDrawerBtn" class="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition active:scale-95 shadow">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating HUD Pill -->
+        <div id="activeToolHUD" class="absolute top-2 right-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-full px-3 py-1 flex items-center space-x-2 shadow-lg z-20 pointer-events-auto">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="activeToolHUDText" class="text-xs font-bold text-slate-200">Mode: Move & Select</span>
+          <button id="hudFinishRouteBtn" class="hidden text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-2 py-0.5 rounded shadow transition flex items-center space-x-1 active:scale-95" title="Finish Drawing Route">
+            <i class="fa-solid fa-check text-[10px]"></i>
+            <span>FINISH (R-CLICK)</span>
+          </button>
+          <button id="hudSwitchMoveBtn" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-sky-400 font-extrabold px-1.5 py-0.5 rounded transition">MOVE</button>
+        </div>
+
+        <!-- Floating Canvas Controls -->
+        <div id="floatingCanvasControls" class="absolute top-2 left-2 flex flex-col space-y-1.5 z-20">
+          <button id="floatingUndoBtn" class="w-8 h-8 rounded-full bg-slate-900/85 backdrop-blur-md border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-800 flex items-center justify-center shadow-lg active:scale-95 transition" title="Undo">
+            <i class="fa-solid fa-rotate-left text-xs"></i>
+          </button>
+          <button id="floatingFlipBtn" class="w-8 h-8 rounded-full bg-slate-900/85 backdrop-blur-md border border-slate-700 text-sky-400 hover:text-white hover:bg-slate-800 flex items-center justify-center shadow-lg active:scale-95 transition" title="Flip Horizontally">
+            <i class="fa-solid fa-right-left text-xs"></i>
+          </button>
+          <button id="floatingNotesBtn" class="w-8 h-8 rounded-full bg-slate-900/85 backdrop-blur-md border border-slate-700 text-amber-300 hover:text-white hover:bg-slate-800 flex items-center justify-center shadow-lg active:scale-95 transition" title="Coaching Notes">
+            <i class="fa-solid fa-comment-dots text-xs"></i>
+          </button>
+
+          <div class="flex flex-col space-y-1 bg-slate-900/85 backdrop-blur-md border border-slate-700 rounded-full p-0.5 shadow-lg">
+            <button id="floatingZoomInBtn" class="w-8 h-8 rounded-full text-emerald-400 hover:text-white hover:bg-slate-800 flex items-center justify-center active:scale-95 transition" title="Zoom In">
+              <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+            <button id="floatingZoomResetBtn" class="w-8 h-7 text-[10px] font-extrabold text-slate-300 hover:text-white flex items-center justify-center active:scale-95 transition border-y border-slate-800" title="Reset View">
+              <span id="zoomPercentBadge">100%</span>
+            </button>
+            <button id="floatingZoomOutBtn" class="w-8 h-8 rounded-full text-emerald-400 hover:text-white hover:bg-slate-800 flex items-center justify-center active:scale-95 transition" title="Zoom Out">
+              <i class="fa-solid fa-minus text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="touchGuideReticle" class="absolute pointer-events-none hidden z-30 -translate-x-1/2 -translate-y-1/2">
+          <div class="w-7 h-7 rounded-full border-2 border-emerald-400/80 bg-emerald-500/20 flex items-center justify-center shadow-lg">
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
+          </div>
+        </div>
+
+        <!-- 1-TAP QUICK ROUTE CAROUSEL -->
+        <div id="mobileRouteSheet" class="absolute bottom-16 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-[460px] bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-2.5 shadow-2xl z-20 hidden transition-all">
+          <div class="flex items-center justify-between mb-1.5 px-1">
+            <div class="flex items-center space-x-1.5">
+              <span id="quickRoutePlayerBadge" class="bg-emerald-600 text-white font-bold text-xs px-2 py-0.5 rounded-full font-chalk">WR</span>
+              <span class="text-xs font-bold text-slate-200">1-Tap Routes & Blocks</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="sheetClearRouteBtn" class="text-[11px] text-red-400 hover:text-red-300 font-semibold">Clear Route</button>
+              <button id="closeQuickRouteBtn" class="text-slate-400 hover:text-white p-1 text-xs">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1.5 overflow-x-auto scrollbar-thin pb-1">
+            <button data-quick="hitch" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">0-Hitch</button>
+            <button data-quick="flat" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">1-Flat</button>
+            <button data-quick="slant" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">2-Slant</button>
+            <button data-quick="out" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">3-Out</button>
+            <button data-quick="dig" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">4-Dig/In</button>
+            <button data-quick="comeback" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">5-Comeback</button>
+            <button data-quick="deep_out" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">6-Deep Out</button>
+            <button data-quick="corner" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">7-Corner</button>
+            <button data-quick="post" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">8-Post</button>
+            <button data-quick="go" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">9-Go/Streak</button>
+            <button data-quick="drag" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">Drag</button>
+            <button data-quick="wheel" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">Wheel</button>
+            <button data-quick="screen" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-amber-300 active:scale-95">Screen</button>
+            <button data-quick="pass_block" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400 active:scale-95">Pass Block</button>
+            <button data-quick="drive_block" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400 active:scale-95">Drive Block</button>
+            <button data-quick="pull_lead" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400 active:scale-95">Pull Lead</button>
+            <button data-quick="run_inside" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-yellow-500/40 rounded-lg text-xs font-semibold text-yellow-400 active:scale-95">Inside Run</button>
+            <button data-quick="run_sweep" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-yellow-500/40 rounded-lg text-xs font-semibold text-yellow-400 active:scale-95">Sweep Run</button>
+            <button data-quick="motion_run" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-fuchsia-500/40 rounded-lg text-xs font-semibold text-fuchsia-400 active:scale-95">Motion Run</button>
+            <button data-quick="def_rush" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-red-500/40 rounded-lg text-xs font-semibold text-red-400 active:scale-95">Blitz Rush</button>
+            <button data-quick="def_zone" class="quick-route-chip shrink-0 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-cyan-500/40 rounded-lg text-xs font-semibold text-cyan-400 active:scale-95">Zone Drop</button>
+          </div>
+        </div>
+
+        <!-- MOBILE INSPECTOR SHEET -->
+        <div id="mobileInspectorSheet" class="absolute bottom-16 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-80 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-3 shadow-2xl z-20 hidden">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div class="flex items-center space-x-2">
+              <span id="inspRoleTag" class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center font-chalk">QB</span>
+              <div>
+                <input id="inspRoleInput" type="text" class="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-white font-bold w-20 focus:outline-none focus:border-emerald-500">
+                <span id="inspTeamLabel" class="text-[10px] text-slate-400 block">Offense</span>
+              </div>
+            </div>
+            <button id="closeInspectorBtn" class="text-slate-400 hover:text-white p-1">
+              <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+          </div>
+          <div class="pt-2 flex items-center justify-between space-x-2">
+            <button id="inspClearRouteBtn" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition active:scale-95">
+              <i class="fa-solid fa-eraser text-red-400 mr-1"></i> Clear Route
+            </button>
+            <button id="inspOpenQuickRoutesBtn" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition active:scale-95">
+              <i class="fa-solid fa-bolt text-yellow-300 mr-1"></i> Route Tree
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Bottom Dock -->
+      <nav id="bottomToolBar" class="sm:hidden h-14 bg-slate-900 border-t border-slate-800 px-2 flex items-center justify-around shrink-0 z-30 select-none">
+        <button class="mobile-tool-btn flex flex-col items-center justify-center w-12 py-1 text-emerald-400 active:scale-95" data-tool="select">
+          <i class="fa-solid fa-arrows-up-down-left-right text-sm mb-0.5"></i>
+          <span class="text-[9px] font-bold">Move</span>
+        </button>
+        <button class="mobile-tool-btn flex flex-col items-center justify-center w-12 py-1 text-slate-400 active:scale-95" data-tool="route">
+          <i class="fa-solid fa-arrow-trend-up text-sm mb-0.5 text-amber-400"></i>
+          <span class="text-[9px] font-bold">Route</span>
+        </button>
+        <button class="mobile-tool-btn flex flex-col items-center justify-center w-12 py-1 text-slate-400 active:scale-95" data-tool="block">
+          <i class="fa-solid fa-t text-sm mb-0.5 text-blue-400"></i>
+          <span class="text-[9px] font-bold">Block</span>
+        </button>
+        <button class="mobile-tool-btn flex flex-col items-center justify-center w-12 py-1 text-slate-400 active:scale-95" data-tool="carrier">
+          <i class="fa-solid fa-football text-sm mb-0.5 text-yellow-400"></i>
+          <span class="text-[9px] font-bold">Carrier</span>
+        </button>
+        <button id="mobileRouteTreeBtn" class="flex flex-col items-center justify-center w-12 py-1 text-slate-400 active:scale-95">
+          <i class="fa-solid fa-list-ol text-sm mb-0.5 text-purple-400"></i>
+          <span class="text-[9px] font-bold">Tree</span>
+        </button>
+        <button id="mobileRunPlayBtn" class="flex flex-col items-center justify-center w-12 py-1 text-amber-400 active:scale-95">
+          <i class="fa-solid fa-play text-sm mb-0.5"></i>
+          <span class="text-[9px] font-bold">Run</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- VIEW 2: QB ARM BAND -->
+    <div id="armBandViewContainer" class="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 p-4 sm:p-6 hidden">
+      <div class="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-800 gap-3">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="bg-amber-500 text-slate-950 font-extrabold text-xs px-2 py-0.5 rounded uppercase tracking-wider font-chalk">Coach Sideline</span>
+            <h2 class="text-xl sm:text-2xl font-black text-white font-chalk">QB ARM BAND WRIST COACH</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">2-Column Layout &bull; 12 Plays per 3" &times; 5" Card &bull; 8 Cards Total</p>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button id="autoFillArmBandBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition active:scale-95 flex items-center space-x-1.5">
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+            <span>Fill Current Set</span>
+          </button>
+          <button id="printArmBandDirectBtn" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition active:scale-95 shadow flex items-center space-x-1.5">
+            <i class="fa-solid fa-print"></i>
+            <span>Print 8-Card Sheet</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="max-w-4xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Select Card:</label>
+              <select id="qbCardSelector" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-bold focus:outline-none focus:border-amber-500">
+                <option value="0">Card #1 (Plays 1-12)</option>
+                <option value="1">Card #2 (Copy of Card #1)</option>
+                <option value="2">Card #3 (Plays 13-24)</option>
+                <option value="3">Card #4 (Copy of Card #3)</option>
+                <option value="4">Card #5 (Copy of Card #1)</option>
+                <option value="5">Card #6 (Copy of Card #1)</option>
+                <option value="6">Card #7 (Copy of Card #3)</option>
+                <option value="7">Card #8 (Copy of Card #3)</option>
+              </select>
+            </div>
+            <div class="space-x-1 text-xs">
+              <button id="clearArmBandBtn" class="text-slate-400 hover:text-red-400 px-2 py-0.5 rounded transition">Clear Set</button>
+              <button id="distributeArmBandBtn" class="text-sky-400 hover:text-sky-300 font-semibold px-2 py-0.5 rounded transition">Auto-Distribute 1–24</button>
+            </div>
+          </div>
+          <div id="qbBandSlotsContainer" class="space-y-1.5 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 flex flex-col items-center">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Live 3" &times; 5" Wristband Preview</span>
+          <div id="qbCardPreviewDisplay" class="w-full max-w-[340px] bg-white text-black rounded-lg shadow-2xl p-3 border-2 border-slate-300 font-sans">
+          </div>
+          <div class="text-[11px] text-slate-500 mt-3 text-center max-w-xs">
+            <i class="fa-solid fa-scissors mr-1"></i> 2-column format fits standard 3&times;5" QB wrist coaches.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NEW PLAY -->
+  <div id="newPlayModal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 shadow-2xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white font-chalk">CREATE NEW PLAY</h3>
+        <button id="cancelNewPlayBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3.5 my-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Play Name</label>
+          <input id="newPlayNameInput" type="text" placeholder="e.g. Wing-T - Buck Sweep" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Offensive Formation</label>
+          <select id="newPlayFormationSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Play Type</label>
+          <select id="newPlayTypeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <option value="run">Run Scheme</option>
+            <option value="pass">Pass Concept</option>
+            <option value="rpo">RPO / Option</option>
+            <option value="screen">Screen Pass</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Defensive Front</label>
+          <select id="newPlayDefenseSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <option value="5-3">5-3 Stack (Youth Base)</option>
+            <option value="6-2">6-2 Wide Tackle</option>
+            <option value="4-3">4-3 Cover 2</option>
+            <option value="3-4">3-4 Cover 3</option>
+            <option value="nickel">Nickel 4-2-5</option>
+            <option value="goalline">Goal Line 6-5</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Coaching Comments &amp; Notes</label>
+          <textarea id="newPlayNotesInput" rows="3" placeholder="Read progression, blitz checks, blocking rules..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button id="cancelNewPlayBtn2" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">Cancel</button>
+        <button id="confirmNewPlayBtn" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Create Play</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SAVE AS -->
+  <div id="saveAsModal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 shadow-2xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white font-chalk">SAVE AS NEW PLAY</h3>
+        <button id="cancelSaveAsBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3.5 my-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">New Play Title</label>
+          <input id="saveAsNameInput" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Play Type</label>
+          <select id="saveAsTypeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+            <option value="pass">Pass Concept</option>
+            <option value="run">Run Scheme</option>
+            <option value="rpo">RPO / Option</option>
+            <option value="screen">Screen Pass</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Target Formation</label>
+          <select id="saveAsFormationSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Coaching Comments &amp; Notes</label>
+          <textarea id="saveAsNotesInput" rows="3" placeholder="Read progression, checks, notes..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 resize-none"></textarea>
+        </div>
+        <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+          <label class="flex items-center space-x-2.5 cursor-pointer">
+            <input id="saveAsFlipCheckbox" type="checkbox" class="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700 focus:ring-0">
+            <span class="text-xs font-semibold text-slate-200">Flip Play Horizontally on Save (e.g. Right &rarr; Left)</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button id="cancelSaveAsBtn2" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">Cancel</button>
+        <button id="confirmSaveAsBtn" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold">Save Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SAVE FORMATION -->
+  <div id="saveFormationModal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 shadow-2xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white font-chalk">SAVE AS CUSTOM FORMATION</h3>
+        <button id="cancelSaveFormationBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3.5 my-4">
+        <p class="text-xs text-slate-400">Captures player coordinates to reuse as an offensive formation template.</p>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Formation Name</label>
+          <input id="newFormationNameInput" type="text" placeholder="e.g. Heavy Double Tight Full House" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button id="cancelSaveFormationBtn2" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">Cancel</button>
+        <button id="confirmSaveFormationBtn" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold">Save Formation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: JSON IMPORT -->
+  <div id="jsonImportModal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-5 shadow-2xl max-h-[94vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white font-chalk">IMPORT PLAYBOOK FILE</h3>
+        <button id="cancelJsonImportBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3.5 my-4 text-xs text-slate-300">
+        <p id="jsonImportStatsText">Detected valid Playmaker JSON playbook.</p>
+        <p class="text-slate-400">Choose how to import plays:</p>
+        <div class="flex flex-col space-y-2">
+          <button id="confirmMergeJsonBtn" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 font-bold text-left flex items-center justify-between">
+            <span>Merge with Current Playbook</span>
+            <i class="fa-solid fa-code-merge"></i>
+          </button>
+          <button id="confirmReplaceJsonBtn" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-red-500/40 text-red-400 font-bold text-left flex items-center justify-between">
+            <span>Replace Entire Playbook</span>
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2 border-t border-slate-800">
+        <button id="cancelJsonImportBtn2" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-400 text-xs font-bold">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+
+  <!-- MODAL: PRINT ENGINE -->
+  <div id="printModal" class="fixed inset-0 bg-slate-950/95 z-50 overflow-y-auto p-4 sm:p-6 hidden">
+    <div id="printModalContent" class="max-w-5xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl">
+      <div id="printModalControls" class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-800 gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-white font-chalk">PRINT PLAYBOOK ENGINE</h3>
+          <p class="text-xs text-slate-400">Letter Binder Sheets &bull; 8-Card Wristband Inserts &bull; Ink-Saver Output</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="printScopeSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold">
+            <option value="formation">Current Formation Plays Only</option>
+            <option value="all">Entire Playbook Binder</option>
+            <option value="current">Current Single Play Card</option>
+            <option value="armband">8-Card QB Arm Band Sheet (3"x5", 2-Column)</option>
+          </select>
+
+          <select id="printOrientationSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold" title="Print Page Orientation">
+            <option value="landscape">Landscape (11"×8.5")</option>
+            <option value="portrait">Portrait (8.5"×11")</option>
+          </select>
+
+          <select id="printLayoutSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold">
+            <option value="1up">1 Play Per Page (Binder Card)</option>
+            <option value="2up">2 Plays Per Page (Compact)</option>
+          </select>
+
+          <select id="printThemeSelect" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-semibold">
+            <option value="ink_saver">Ink Saver (Clean White / B&amp;W)</option>
+            <option value="color_turf">Color Turf</option>
+          </select>
+
+          <button id="confirmPrintBtn" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition active:scale-95 shadow">
+            <i class="fa-solid fa-print mr-1"></i> Print / Save PDF
+          </button>
+          <button id="closePrintModalBtn" class="p-1.5 text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="printPreviewArea" class="mt-4 space-y-6">
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MOBILE ACTIONS MENU -->
+  <div id="mobileMenuModal" class="fixed inset-0 bg-black/75 z-50 flex items-end sm:items-center justify-center p-3 hidden backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-4 shadow-2xl space-y-2">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Actions</span>
+        <button id="closeMobileMenuBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+        <button id="mobActionNotes" class="p-2.5 bg-slate-800 rounded-lg text-amber-300 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-clipboard-list text-amber-400"></i>
+          <span>Coaching Notes</span>
+        </button>
+        <button id="mobActionNewPlay" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-plus text-emerald-400"></i>
+          <span>New Play</span>
+        </button>
+        <button id="mobActionSaveAs" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-copy text-sky-400"></i>
+          <span>Save As</span>
+        </button>
+        <button id="mobActionFlip" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-right-left text-sky-400"></i>
+          <span>Flip Board</span>
+        </button>
+        <button id="mobActionPrint" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-print text-amber-400"></i>
+          <span>Print Book</span>
+        </button>
+        <button id="mobActionArmBand" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-id-card-clip text-amber-400"></i>
+          <span>QB Arm Band</span>
+        </button>
+        <button id="mobActionTheme" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-brush text-teal-400"></i>
+          <span>Chalk / Turf</span>
+        </button>
+        <button id="mobActionBackup" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-download text-indigo-400"></i>
+          <span>Backup JSON</span>
+        </button>
+        <button id="mobActionOpen" class="p-2.5 bg-slate-800 rounded-lg text-slate-200 font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-folder-open text-teal-400"></i>
+          <span>Open JSON</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastMessage" class="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl z-50 pointer-events-none opacity-0 transition-opacity duration-200">
+    Notification
+  </div>
+
+  <script>
+    // EXPANDED & SPACED FORMATION PRESETS (WIDER LINE SPLITS & CLEARER BACKFIELD DEPTHS)
+    const FORMATION_PRESETS = {
+      single_wing_beast: {
+        name: "Single Wing / Beast",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: -35, y: 15 },
+          { id: 'qg', label: 'QG', role: 'LG', type: 'offense', isLine: true, x: -75, y: 15 },
+          { id: 'sg', label: 'SG', role: 'RG', type: 'offense', isLine: true, x: 5, y: 15 },
+          { id: 'st', label: 'ST', role: 'RT', type: 'offense', isLine: true, x: 45, y: 15 },
+          { id: 'pte', label: 'TE1', role: 'TE', type: 'offense', isLine: true, x: 85, y: 15 },
+          { id: 'ste', label: 'TE2', role: 'TE', type: 'offense', isLine: true, x: 125, y: 15 },
+          { id: 'we', label: 'WE', role: 'WR', type: 'offense', isLine: true, x: -125, y: 15 },
+          { id: 'bb', label: 'BB', role: 'FB', type: 'offense', isLine: false, x: -15, y: 52 },
+          { id: 'fb', label: 'FB', role: 'WB', type: 'offense', isLine: false, x: 65, y: 52 },
+          { id: 'wb', label: 'WB', role: 'WB', type: 'offense', isLine: false, x: 155, y: 32 },
+          { id: 'tb', label: 'TB', role: 'RB', type: 'offense', isLine: false, x: 20, y: 80 }
+        ]
+      },
+      iform_pro: {
+        name: "I-Formation Pro",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -44, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 44, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -88, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 88, y: 15 },
+          { id: 'y', label: 'Y', role: 'TE', type: 'offense', isLine: true, x: 130, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 35 },
+          { id: 'fb', label: 'FB', role: 'FB', type: 'offense', isLine: false, x: 0, y: 72 },
+          { id: 'tb', label: 'TB', role: 'TB', type: 'offense', isLine: false, x: 0, y: 112 },
+          { id: 'x', label: 'X', role: 'WR', type: 'offense', isLine: false, x: -215, y: 15 },
+          { id: 'z', label: 'Z', role: 'WR', type: 'offense', isLine: false, x: 215, y: 26 }
+        ]
+      },
+      double_wing: {
+        name: "Double Wing",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -40, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 40, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -80, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 80, y: 15 },
+          { id: 'te1', label: 'TE1', role: 'TE', type: 'offense', isLine: true, x: -120, y: 15 },
+          { id: 'te2', label: 'TE2', role: 'TE', type: 'offense', isLine: true, x: 120, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32 },
+          { id: 'bb', label: 'B', role: 'FB', type: 'offense', isLine: false, x: 0, y: 70 },
+          { id: 'lw', label: 'LW', role: 'WB', type: 'offense', isLine: false, x: -150, y: 34 },
+          { id: 'rw', label: 'RW', role: 'WB', type: 'offense', isLine: false, x: 150, y: 34 }
+        ]
+      },
+      wing_t: {
+        name: "Wing-T (Delaware)",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -42, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 42, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -84, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 84, y: 15 },
+          { id: 'te', label: 'TE', role: 'TE', type: 'offense', isLine: true, x: 126, y: 15 },
+          { id: 'se', label: 'SE', role: 'WR', type: 'offense', isLine: false, x: -210, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32 },
+          { id: 'fb', label: 'FB', role: 'FB', type: 'offense', isLine: false, x: 0, y: 68 },
+          { id: 'hb', label: 'HB', role: 'HB', type: 'offense', isLine: false, x: -52, y: 72 },
+          { id: 'wb', label: 'WB', role: 'WB', type: 'offense', isLine: false, x: 156, y: 32 }
+        ]
+      },
+      wishbone: {
+        name: "Wishbone Triple Option",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -42, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 42, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -84, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 84, y: 15 },
+          { id: 'te', label: 'TE', role: 'TE', type: 'offense', isLine: true, x: 126, y: 15 },
+          { id: 'se', label: 'SE', role: 'WR', type: 'offense', isLine: false, x: -215, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32 },
+          { id: 'fb', label: 'FB', role: 'FB', type: 'offense', isLine: false, x: 0, y: 66 },
+          { id: 'lh', label: 'LH', role: 'HB', type: 'offense', isLine: false, x: -62, y: 104 },
+          { id: 'rh', label: 'RH', role: 'HB', type: 'offense', isLine: false, x: 62, y: 104 }
+        ]
+      },
+      pistol_diamond: {
+        name: "Pistol Diamond (3-Back)",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -44, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 44, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -88, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 88, y: 15 },
+          { id: 'x', label: 'X', role: 'WR', type: 'offense', isLine: false, x: -220, y: 15 },
+          { id: 'z', label: 'Z', role: 'WR', type: 'offense', isLine: false, x: 220, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 55 },
+          { id: 'fb1', label: 'H1', role: 'FB', type: 'offense', isLine: false, x: -50, y: 55 },
+          { id: 'fb2', label: 'H2', role: 'FB', type: 'offense', isLine: false, x: 50, y: 55 },
+          { id: 'rb', label: 'RB', role: 'RB', type: 'offense', isLine: false, x: 0, y: 105 }
+        ]
+      },
+      spread_2x2: {
+        name: "Spread 2x2 Open",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -44, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 44, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -88, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 88, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 68 },
+          { id: 'rb', label: 'RB', role: 'RB', type: 'offense', isLine: false, x: 48, y: 68 },
+          { id: 'x', label: 'X', role: 'WR', type: 'offense', isLine: false, x: -230, y: 15 },
+          { id: 'h', label: 'H', role: 'SLOT', type: 'offense', isLine: false, x: -155, y: 28 },
+          { id: 'y', label: 'Y', role: 'SLOT', type: 'offense', isLine: false, x: 155, y: 28 },
+          { id: 'z', label: 'Z', role: 'WR', type: 'offense', isLine: false, x: 230, y: 15 }
+        ]
+      },
+      trips_right: {
+        name: "Shotgun Trips Right",
+        players: [
+          { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15 },
+          { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -44, y: 15 },
+          { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 44, y: 15 },
+          { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -88, y: 15 },
+          { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 88, y: 15 },
+          { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 68 },
+          { id: 'rb', label: 'RB', role: 'RB', type: 'offense', isLine: false, x: -48, y: 68 },
+          { id: 'x', label: 'X', role: 'WR', type: 'offense', isLine: false, x: -225, y: 15 },
+          { id: 'y', label: 'Y', role: 'TE', type: 'offense', isLine: false, x: 125, y: 15 },
+          { id: 'h', label: 'H', role: 'SLOT', type: 'offense', isLine: false, x: 170, y: 28 },
+          { id: 'z', label: 'Z', role: 'WR', type: 'offense', isLine: false, x: 225, y: 15 }
+        ]
+      }
+    };
+
+    // EXPANDED & SPACED DEFENSIVE FRONTS (DL / LB / DB CLEAR 3-LEVEL DEPTH SEPARATION)
+    const DEFENSE_PRESETS = {
+      '5-3': {
+        name: "5-3 Stack",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -115, y: -26 },
+          { id: 'dt1', label: 'DT', role: 'DT', type: 'defense', x: -55, y: -26 },
+          { id: 'nt', label: 'NT', role: 'NT', type: 'defense', x: 0, y: -26 },
+          { id: 'dt2', label: 'DT', role: 'DT', type: 'defense', x: 55, y: -26 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 115, y: -26 },
+          { id: 'wlb', label: 'W', role: 'LB', type: 'defense', x: -62, y: -78 },
+          { id: 'mlb', label: 'M', role: 'LB', type: 'defense', x: 0, y: -82 },
+          { id: 'slb', label: 'S', role: 'LB', type: 'defense', x: 62, y: -78 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -210, y: -80 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 210, y: -80 },
+          { id: 'fs', label: 'FS', role: 'S', type: 'defense', x: 0, y: -160 }
+        ]
+      },
+      '6-2': {
+        name: "6-2 Wide Tackle",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -128, y: -26 },
+          { id: 'dt1', label: 'DT', role: 'DT', type: 'defense', x: -75, y: -26 },
+          { id: 'ng1', label: 'G', role: 'DT', type: 'defense', x: -25, y: -26 },
+          { id: 'ng2', label: 'G', role: 'DT', type: 'defense', x: 25, y: -26 },
+          { id: 'dt2', label: 'DT', role: 'DT', type: 'defense', x: 75, y: -26 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 128, y: -26 },
+          { id: 'ilb1', label: 'MLB', role: 'LB', type: 'defense', x: -50, y: -75 },
+          { id: 'ilb2', label: 'WLB', role: 'LB', type: 'defense', x: 50, y: -75 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -210, y: -80 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 210, y: -80 },
+          { id: 's', label: 'S', role: 'S', type: 'defense', x: 0, y: -155 }
+        ]
+      },
+      '4-3': {
+        name: "4-3 Cover 2",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -105, y: -26 },
+          { id: 'dt1', label: 'DT', role: 'DT', type: 'defense', x: -36, y: -26 },
+          { id: 'dt2', label: 'DT', role: 'DT', type: 'defense', x: 36, y: -26 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 105, y: -26 },
+          { id: 'wlb', label: 'W', role: 'LB', type: 'defense', x: -80, y: -80 },
+          { id: 'mlb', label: 'M', role: 'LB', type: 'defense', x: 0, y: -84 },
+          { id: 'slb', label: 'S', role: 'LB', type: 'defense', x: 80, y: -80 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -210, y: -85 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 210, y: -85 },
+          { id: 'fs', label: 'FS', role: 'S', type: 'defense', x: -95, y: -160 },
+          { id: 'ss', label: 'SS', role: 'S', type: 'defense', x: 95, y: -160 }
+        ]
+      },
+      '3-4': {
+        name: "3-4 Cover 3",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -65, y: -26 },
+          { id: 'nt', label: 'NT', role: 'NT', type: 'defense', x: 0, y: -26 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 65, y: -26 },
+          { id: 'olb1', label: 'OLB', role: 'LB', type: 'defense', x: -120, y: -54 },
+          { id: 'ilb1', label: 'ILB', role: 'LB', type: 'defense', x: -42, y: -82 },
+          { id: 'ilb2', label: 'ILB', role: 'LB', type: 'defense', x: 42, y: -82 },
+          { id: 'olb2', label: 'OLB', role: 'LB', type: 'defense', x: 120, y: -54 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -210, y: -90 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 210, y: -90 },
+          { id: 'fs', label: 'FS', role: 'S', type: 'defense', x: 0, y: -165 },
+          { id: 'ss', label: 'SS', role: 'S', type: 'defense', x: 95, y: -115 }
+        ]
+      },
+      'nickel': {
+        name: "Nickel 4-2-5",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -105, y: -26 },
+          { id: 'dt1', label: 'DT', role: 'DT', type: 'defense', x: -36, y: -26 },
+          { id: 'dt2', label: 'DT', role: 'DT', type: 'defense', x: 36, y: -26 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 105, y: -26 },
+          { id: 'wlb', label: 'W', role: 'LB', type: 'defense', x: -50, y: -80 },
+          { id: 'mlb', label: 'M', role: 'LB', type: 'defense', x: 50, y: -80 },
+          { id: 'nb', label: 'NICK', role: 'CB', type: 'defense', x: 155, y: -72 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -215, y: -90 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 215, y: -90 },
+          { id: 'fs', label: 'FS', role: 'S', type: 'defense', x: -80, y: -160 },
+          { id: 'ss', label: 'SS', role: 'S', type: 'defense', x: 80, y: -160 }
+        ]
+      },
+      'goalline': {
+        name: "Goal Line 6-5",
+        players: [
+          { id: 'de1', label: 'DE', role: 'DE', type: 'defense', x: -125, y: -24 },
+          { id: 'dt1', label: 'DT', role: 'DT', type: 'defense', x: -75, y: -24 },
+          { id: 'ng1', label: 'NT', role: 'DT', type: 'defense', x: -25, y: -24 },
+          { id: 'ng2', label: 'NT', role: 'DT', type: 'defense', x: 25, y: -24 },
+          { id: 'dt2', label: 'DT', role: 'DT', type: 'defense', x: 75, y: -24 },
+          { id: 'de2', label: 'DE', role: 'DE', type: 'defense', x: 125, y: -24 },
+          { id: 'lb1', label: 'LB', role: 'LB', type: 'defense', x: -70, y: -62 },
+          { id: 'lb2', label: 'MLB', role: 'LB', type: 'defense', x: 0, y: -64 },
+          { id: 'lb3', label: 'LB', role: 'LB', type: 'defense', x: 70, y: -62 },
+          { id: 'cb1', label: 'CB', role: 'CB', type: 'defense', x: -195, y: -64 },
+          { id: 'cb2', label: 'CB', role: 'CB', type: 'defense', x: 195, y: -64 }
+        ]
+      }
+    };
+
+    function getDefaultPlays() {
+      const getDef = (key) => (DEFENSE_PRESETS[key] || DEFENSE_PRESETS['5-3']).players.map(p => ({ ...p, route: null }));
+
+      return [
+        {
+          id: 'play_beast_wedge',
+          name: 'Beast - Tank Wedge Right',
+          formationKey: 'single_wing_beast',
+          formationName: 'Single Wing / Beast',
+          type: 'run',
+          defenseKey: '5-3',
+          notes: 'Direct snap to TB. Fullback and Blocking Back seal the A/B seam. TB locks behind the Center/Guard wedge.',
+          players: [
+            { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: -35, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-35,y:15},{x:-35,y:-8}] } },
+            { id: 'qg', label: 'QG', role: 'LG', type: 'offense', isLine: true, x: -75, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-75,y:15},{x:-60,y:-10}] } },
+            { id: 'sg', label: 'SG', role: 'RG', type: 'offense', isLine: true, x: 5, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:5,y:15},{x:-10,y:-10}] } },
+            { id: 'st', label: 'ST', role: 'RT', type: 'offense', isLine: true, x: 45, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:45,y:15},{x:28,y:-10}] } },
+            { id: 'pte', label: 'TE1', role: 'TE', type: 'offense', isLine: true, x: 85, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:85,y:15},{x:68,y:-10}] } },
+            { id: 'ste', label: 'TE2', role: 'TE', type: 'offense', isLine: true, x: 125, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:125,y:15},{x:108,y:-10}] } },
+            { id: 'we', label: 'WE', role: 'WR', type: 'offense', isLine: true, x: -125, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-125,y:15},{x:-110,y:-8}] } },
+            { id: 'bb', label: 'BB', role: 'FB', type: 'offense', isLine: false, x: -15, y: 52, route: { type: 'block', cap: 'tbar', points: [{x:-15,y:52},{x:-8,y:10}] } },
+            { id: 'fb', label: 'FB', role: 'WB', type: 'offense', isLine: false, x: 65, y: 52, route: { type: 'block', cap: 'tbar', points: [{x:65,y:52},{x:42,y:10}] } },
+            { id: 'wb', label: 'WB', role: 'WB', type: 'offense', isLine: false, x: 155, y: 32, route: { type: 'block', cap: 'tbar', points: [{x:155,y:32},{x:135,y:-12}] } },
+            { id: 'tb', label: 'TB', role: 'RB', type: 'offense', isLine: false, x: 20, y: 80, route: { type: 'carrier', cap: 'ball', points: [{x:20,y:80},{x:14,y:40},{x:8,y:-65}] } },
+            ...getDef('5-3')
+          ]
+        },
+        {
+          id: 'play_wingt_buck',
+          name: 'Wing-T - 121 Buck Sweep',
+          formationKey: 'wing_t',
+          formationName: 'Wing-T (Delaware)',
+          type: 'run',
+          defenseKey: '5-3',
+          notes: 'Both guards pull. Frontside Guard kicks edge, Backside Guard turns up to lead. FB fakes dive up gut.',
+          players: [
+            { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:0,y:15},{x:-10,y:-8}] } },
+            { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -42, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-42,y:15},{x:25,y:30},{x:145,y:-12}] } },
+            { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 42, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:42,y:15},{x:90,y:26},{x:170,y:-8}] } },
+            { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -84, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-84,y:15},{x:-84,y:-8}] } },
+            { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 84, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:84,y:15},{x:84,y:-8}] } },
+            { id: 'te', label: 'TE', role: 'TE', type: 'offense', isLine: true, x: 126, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:126,y:15},{x:114,y:-16}] } },
+            { id: 'se', label: 'SE', role: 'WR', type: 'offense', isLine: false, x: -210, y: 15, route: { type: 'route', cap: 'arrow', points: [{x:-210,y:15},{x:-210,y:-80}] } },
+            { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32, route: { type: 'route', cap: 'arrow', points: [{x:0,y:32},{x:28,y:48},{x:-24,y:68}] } },
+            { id: 'fb', label: 'FB', role: 'FB', type: 'offense', isLine: false, x: 0, y: 68, route: { type: 'block', cap: 'tbar', points: [{x:0,y:68},{x:-10,y:12}] } },
+            { id: 'wb', label: 'WB', role: 'WB', type: 'offense', isLine: false, x: 156, y: 32, route: { type: 'block', cap: 'tbar', points: [{x:156,y:32},{x:138,y:-14}] } },
+            { id: 'hb', label: 'HB', role: 'HB', type: 'offense', isLine: false, x: -52, y: 72, route: { type: 'carrier', cap: 'ball', points: [{x:-52,y:72},{x:20,y:50},{x:110,y:36},{x:165,y:-60}] } },
+            ...getDef('5-3')
+          ]
+        },
+        {
+          id: 'play_double_wing_toss',
+          name: 'Double Wing - Super Power 38',
+          formationKey: 'double_wing',
+          formationName: 'Double Wing',
+          type: 'run',
+          defenseKey: '6-2',
+          notes: 'Right Wing goes in short motion. B-back kick-out block, backside guard and tackle pull to lead.',
+          players: [
+            { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:0,y:15},{x:-10,y:-8}] } },
+            { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -40, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-40,y:15},{x:20,y:28},{x:135,y:-12}] } },
+            { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 40, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:40,y:15},{x:40,y:-10}] } },
+            { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -80, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-80,y:15},{x:-15,y:32},{x:105,y:-20}] } },
+            { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 80, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:80,y:15},{x:80,y:-10}] } },
+            { id: 'te1', label: 'TE1', role: 'TE', type: 'offense', isLine: true, x: -120, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-120,y:15},{x:-120,y:-8}] } },
+            { id: 'te2', label: 'TE2', role: 'TE', type: 'offense', isLine: true, x: 120, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:120,y:15},{x:105,y:-14}] } },
+            { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32, route: { type: 'route', cap: 'arrow', points: [{x:0,y:32},{x:20,y:48}] } },
+            { id: 'bb', label: 'B', role: 'FB', type: 'offense', isLine: false, x: 0, y: 70, route: { type: 'block', cap: 'tbar', points: [{x:0,y:70},{x:58,y:42},{x:155,y:6}] } },
+            { id: 'rw', label: 'RW', role: 'WB', type: 'offense', isLine: false, x: 150, y: 34, route: { type: 'block', cap: 'tbar', points: [{x:150,y:34},{x:130,y:-14}] } },
+            { id: 'lw', label: 'LW', role: 'WB', type: 'offense', isLine: false, x: -150, y: 34, route: { type: 'carrier', cap: 'ball', points: [{x:-150,y:34},{x:-40,y:56},{x:65,y:50},{x:125,y:26},{x:160,y:-65}] } },
+            ...getDef('6-2')
+          ]
+        },
+        {
+          id: 'play_wishbone_triple',
+          name: 'Wishbone - Triple Option Right',
+          formationKey: 'wishbone',
+          formationName: 'Wishbone Triple Option',
+          type: 'rpo',
+          defenseKey: '5-3',
+          notes: 'Dive read: DE. Pitch read: OLB/Safety. QB attacks downhill off FB belly fake, pitches to RH.',
+          players: [
+            { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:0,y:15},{x:0,y:-8}] } },
+            { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -42, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-42,y:15},{x:-42,y:-10}] } },
+            { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 42, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:42,y:15},{x:42,y:-10}] } },
+            { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -84, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-84,y:15},{x:-84,y:-10}] } },
+            { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 84, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:84,y:15},{x:84,y:-10}] } },
+            { id: 'te', label: 'TE', role: 'TE', type: 'offense', isLine: true, x: 126, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:126,y:15},{x:112,y:-20}] } },
+            { id: 'se', label: 'SE', role: 'WR', type: 'offense', isLine: false, x: -215, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-215,y:15},{x:-215,y:-35}] } },
+            { id: 'fb', label: 'FB', role: 'FB', type: 'offense', isLine: false, x: 0, y: 66, route: { type: 'carrier', cap: 'ball', points: [{x:0,y:66},{x:35,y:32},{x:48,y:-45}] } },
+            { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 32, route: { type: 'route', cap: 'arrow', points: [{x:0,y:32},{x:55,y:45},{x:115,y:24},{x:130,y:-40}] } },
+            { id: 'lh', label: 'LH', role: 'HB', type: 'offense', isLine: false, x: -62, y: 104, route: { type: 'block', cap: 'tbar', points: [{x:-62,y:104},{x:-28,y:50},{x:35,y:0}] } },
+            { id: 'rh', label: 'RH', role: 'HB', type: 'offense', isLine: false, x: 62, y: 104, route: { type: 'carrier', cap: 'ball', points: [{x:62,y:104},{x:125,y:66},{x:175,y:24},{x:190,y:-60}] } },
+            ...getDef('5-3')
+          ]
+        },
+        {
+          id: 'play_pistol_counter',
+          name: 'Pistol Diamond - Counter Bash',
+          formationKey: 'pistol_diamond',
+          formationName: 'Pistol Diamond (3-Back)',
+          type: 'run',
+          defenseKey: '5-3',
+          notes: 'QB reads unblocked edge defender. Give to sweeping RB or pull and wrap behind pulling H-Back.',
+          players: [
+            { id: 'c', label: 'C', role: 'C', type: 'offense', isLine: true, x: 0, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:0,y:15},{x:20,y:-8}] } },
+            { id: 'lg', label: 'LG', role: 'LG', type: 'offense', isLine: true, x: -44, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-44,y:15},{x:-44,y:-10}] } },
+            { id: 'rg', label: 'RG', role: 'RG', type: 'offense', isLine: true, x: 44, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:44,y:15},{x:44,y:-10}] } },
+            { id: 'lt', label: 'LT', role: 'LT', type: 'offense', isLine: true, x: -88, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-88,y:15},{x:-88,y:-12}] } },
+            { id: 'rt', label: 'RT', role: 'RT', type: 'offense', isLine: true, x: 88, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:88,y:15},{x:88,y:-12}] } },
+            { id: 'x', label: 'X', role: 'WR', type: 'offense', isLine: false, x: -220, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:-220,y:15},{x:-220,y:-30}] } },
+            { id: 'z', label: 'Z', role: 'WR', type: 'offense', isLine: false, x: 220, y: 15, route: { type: 'block', cap: 'tbar', points: [{x:220,y:15},{x:220,y:-30}] } },
+            { id: 'fb1', label: 'H1', role: 'FB', type: 'offense', isLine: false, x: -50, y: 55, route: { type: 'block', cap: 'tbar', points: [{x:-50,y:55},{x:-8,y:38},{x:105,y:-14}] } },
+            { id: 'fb2', label: 'H2', role: 'FB', type: 'offense', isLine: false, x: 50, y: 55, route: { type: 'block', cap: 'tbar', points: [{x:50,y:55},{x:78,y:26},{x:120,y:-10}] } },
+            { id: 'qb', label: 'QB', role: 'QB', type: 'offense', isLine: false, x: 0, y: 55, route: { type: 'carrier', cap: 'ball', points: [{x:0,y:55},{x:28,y:60},{x:62,y:26},{x:82,y:-60}] } },
+            { id: 'rb', label: 'RB', role: 'RB', type: 'offense', isLine: false, x: 0, y: 105, route: { type: 'carrier', cap: 'ball', points: [{x:0,y:105},{x:-48,y:78},{x:-110,y:38},{x:-145,y:-50}] } },
+            ...getDef('5-3')
+          ]
+        }
+      ];
+    }
+
+    // Storage Keys
+    const STORAGE_KEY_PLAYS = 'playmaker_plays_v8';
+    const STORAGE_KEY_FORMATIONS = 'playmaker_formations_v8';
+    const STORAGE_KEY_ARMBAND = 'playmaker_armband_v10';
+
+    function loadCustomFormations() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_FORMATIONS);
+        if (raw) {
+          const dict = JSON.parse(raw);
+          if (dict && typeof dict === 'object') return dict;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return {};
+    }
+
+    function saveCustomFormations(dict) {
+      try {
+        localStorage.setItem(STORAGE_KEY_FORMATIONS, JSON.stringify(dict));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function getFormationName(key) {
+      if (!key) return 'Offense';
+      if (FORMATION_PRESETS[key]) return FORMATION_PRESETS[key].name;
+      const customs = loadCustomFormations();
+      if (customs[key] && customs[key].name) return customs[key].name;
+      return key.replace(/^(form_|custom_)/i, '').replace(/_/g, ' ');
+    }
+
+    function resolvePlayFormationName(play) {
+      if (!play) return 'Offense';
+      if (play.formationName && !play.formationName.startsWith('form_') && !play.formationName.startsWith('custom_')) {
+        return play.formationName;
+      }
+      return getFormationName(play.formationKey);
+    }
+
+    function loadSavedPlays() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_PLAYS);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) return list;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      const defaults = getDefaultPlays();
+      savePlaysToStorage(defaults);
+      return defaults;
+    }
+
+    function savePlaysToStorage(list) {
+      try {
+        localStorage.setItem(STORAGE_KEY_PLAYS, JSON.stringify(list));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function syncArmBandCards(armBandData) {
+      const setA = (armBandData[0] || Array(12).fill(null)).map(p => p ? { ...p } : null);
+      const setB = (armBandData[2] || Array(12).fill(null)).map(p => p ? { ...p } : null);
+
+      armBandData[0] = setA;
+      armBandData[1] = setA.map(p => p ? { ...p } : null);
+      armBandData[4] = setA.map(p => p ? { ...p } : null);
+      armBandData[5] = setA.map(p => p ? { ...p } : null);
+
+      armBandData[2] = setB;
+      armBandData[3] = setB.map(p => p ? { ...p } : null);
+      armBandData[6] = setB.map(p => p ? { ...p } : null);
+      armBandData[7] = setB.map(p => p ? { ...p } : null);
+    }
+
+    function loadArmBandSlots() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_ARMBAND);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (Array.isArray(data) && data.length === 8) return data;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      const empty8Cards = Array(8).fill(null).map(() => Array(12).fill(null));
+      const plays = loadSavedPlays();
+
+      for (let i = 0; i < Math.min(plays.length, 12); i++) {
+        empty8Cards[0][i] = {
+          playId: plays[i].id,
+          name: plays[i].name,
+          formation: resolvePlayFormationName(plays[i]),
+          type: plays[i].type || 'run'
+        };
+      }
+
+      for (let i = 12; i < Math.min(plays.length, 24); i++) {
+        empty8Cards[2][i - 12] = {
+          playId: plays[i].id,
+          name: plays[i].name,
+          formation: resolvePlayFormationName(plays[i]),
+          type: plays[i].type || 'run'
+        };
+      }
+
+      syncArmBandCards(empty8Cards);
+      saveArmBandSlots(empty8Cards);
+      return empty8Cards;
+    }
+
+    function saveArmBandSlots(data) {
+      try {
+        localStorage.setItem(STORAGE_KEY_ARMBAND, JSON.stringify(data));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    let players = [];
+    let activeTool = 'select';
+    let selectedPlayer = null;
+    let isDrawing = false;
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let fieldTheme = 'turf';
+    let historyStack = [];
+    let currentDrawingPoints = [];
+    let cursorWorldPos = null;
+    let currentPlayType = 'run';
+    let currentPlayNotes = '';
+
+    let viewTransform = { scale: 1.0, offsetX: 0, offsetY: 0 };
+    const MIN_ZOOM = 0.55;
+    const MAX_ZOOM = 2.85;
+    let isPanningCamera = false;
+    let panStart = { x: 0, y: 0 };
+    let initialPinchDist = null;
+    let initialPinchCenter = null;
+    let initialPinchTransform = null;
+
+    let prevCanvasWidth = 0;
+    let prevCanvasHeight = 0;
+    let prevCenter = null;
+
+    let currentFormationKey = 'single_wing_beast';
+    let currentFormationName = 'Single Wing / Beast';
+    let activeFormationFilter = 'ALL';
+    let draggedPlayId = null;
+
+    let isSimulating = false;
+    let simProgress = 0;
+    let simStartTime = null;
+    const SIM_DURATION = 3500;
+
+    const canvas = document.getElementById('fieldCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function setPlayNotes(text) {
+      currentPlayNotes = (text || '').trim();
+      const textarea = document.getElementById('playNotesTextarea');
+      if (textarea && textarea.value !== currentPlayNotes) {
+        textarea.value = currentPlayNotes;
+      }
+      updateNotesCounter();
+      updateNotesIndicators();
+    }
+
+    function updateNotesCounter() {
+      const textarea = document.getElementById('playNotesTextarea');
+      const counter = document.getElementById('notesCharCounter');
+      if (textarea && counter) {
+        counter.textContent = `${textarea.value.length} character${textarea.value.length === 1 ? '' : 's'}`;
+      }
+    }
+
+    function updateNotesIndicators() {
+      const hasNotes = currentPlayNotes.length > 0;
+      const dot1 = document.getElementById('notesIndicatorDot');
+      const dot2 = document.getElementById('mobileNotesIndicatorDot');
+      if (dot1) dot1.classList.toggle('hidden', !hasNotes);
+      if (dot2) dot2.classList.toggle('hidden', !hasNotes);
+    }
+
+    function toggleNotesDrawer(forceOpen = null) {
+      const drawer = document.getElementById('coachingNotesDrawer');
+      if (!drawer) return;
+      const shouldOpen = forceOpen !== null ? forceOpen : drawer.classList.contains('hidden');
+      if (shouldOpen) {
+        drawer.classList.remove('hidden');
+        const textarea = document.getElementById('playNotesTextarea');
+        if (textarea) {
+          textarea.value = currentPlayNotes;
+          updateNotesCounter();
+          textarea.focus();
+        }
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function getFieldMetrics(canvasHeight) {
+      const totalYards = 30;
+      const pxPerYard = Math.max(8.0, Math.min(16.5, canvasHeight / (totalYards + 1.2)));
+      const losY = Math.round(canvasHeight - (10.5 * pxPerYard));
+      return { pxPerYard, losY, backfieldYards: 10, downfieldYards: 20 };
+    }
+
+    function getFieldCenter() {
+      const metrics = getFieldMetrics(canvas.height);
+      return { x: Math.round(canvas.width / 2), y: metrics.losY };
+    }
+
+    function resizeCanvas() {
+      const wrapper = document.getElementById('canvasWrapper');
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const newWidth = Math.round(rect.width);
+      const newHeight = Math.round(rect.height);
+
+      if (prevCanvasWidth > 0 && prevCanvasHeight > 0 && (prevCanvasWidth !== newWidth || prevCanvasHeight !== newHeight)) {
+        const oldMetrics = getFieldMetrics(prevCanvasHeight);
+        const newMetrics = getFieldMetrics(newHeight);
+        const oldCenter = prevCenter || { x: prevCanvasWidth / 2, y: oldMetrics.losY };
+        const newCenter = { x: Math.round(newWidth / 2), y: newMetrics.losY };
+
+        const scaleX = newWidth / prevCanvasWidth;
+        const scaleY = newMetrics.pxPerYard / oldMetrics.pxPerYard;
+
+        players.forEach(p => {
+          const relX = p.x - oldCenter.x;
+          const relY = p.y - oldCenter.y;
+          p.x = Math.max(16, Math.min(newWidth - 16, Math.round(newCenter.x + relX * scaleX)));
+          p.y = Math.max(16, Math.min(newHeight - 16, Math.round(newCenter.y + relY * scaleY)));
+
+          if (p.route && p.route.points) {
+            p.route.points.forEach(pt => {
+              const ptRelX = pt.x - oldCenter.x;
+              const ptRelY = pt.y - oldCenter.y;
+              pt.x = Math.max(10, Math.min(newWidth - 10, Math.round(newCenter.x + ptRelX * scaleX)));
+              pt.y = Math.max(10, Math.min(newHeight - 10, Math.round(newCenter.y + ptRelY * scaleY)));
+            });
+          }
+        });
+      }
+
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      prevCanvasWidth = newWidth;
+      prevCanvasHeight = newHeight;
+      prevCenter = getFieldCenter();
+
+      render();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeCanvas, 100);
+      setTimeout(resizeCanvas, 350);
+    });
+
+    function updateZoomBadge() {
+      const badge = document.getElementById('zoomPercentBadge');
+      if (badge) {
+        badge.textContent = `${Math.round(viewTransform.scale * 100)}%`;
+      }
+    }
+
+    function setZoomAtCenter(newScale, screenCenter = null) {
+      const targetScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+      const center = screenCenter || { x: canvas.width / 2, y: canvas.height / 2 };
+
+      const worldPivotX = (center.x - viewTransform.offsetX) / viewTransform.scale;
+      const worldPivotY = (center.y - viewTransform.offsetY) / viewTransform.scale;
+
+      viewTransform.scale = targetScale;
+      viewTransform.offsetX = center.x - (worldPivotX * targetScale);
+      viewTransform.offsetY = center.y - (worldPivotY * targetScale);
+
+      updateZoomBadge();
+      render();
+    }
+
+    function resetCameraView() {
+      triggerHaptic();
+      viewTransform.scale = 1.0;
+      viewTransform.offsetX = 0;
+      viewTransform.offsetY = 0;
+      updateZoomBadge();
+      render();
+      showToast("Centered view on Line of Scrimmage");
+    }
+
+    function getCanvasCoords(e, applyTouchOffset = false) {
+      const rect = canvas.getBoundingClientRect();
+      const isTouch = !!e.touches && e.touches.length > 0;
+      const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      let clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+      if (isTouch && applyTouchOffset) {
+        clientY -= 24;
+      }
+
+      const canvasPixelX = (clientX - rect.left) * (canvas.width / rect.width);
+      const canvasPixelY = (clientY - rect.top) * (canvas.height / rect.height);
+
+      const worldX = (canvasPixelX - viewTransform.offsetX) / viewTransform.scale;
+      const worldY = (canvasPixelY - viewTransform.offsetY) / viewTransform.scale;
+
+      return {
+        x: worldX,
+        y: worldY,
+        canvasX: canvasPixelX,
+        canvasY: canvasPixelY,
+        rawClientX: clientX,
+        rawClientY: clientY
+      };
+    }
+
+    function drawField(rCtx, width, height, theme, pxPerYardCustom = null, losYCustom = null) {
+      const metrics = getFieldMetrics(height);
+      const pxPerYard = pxPerYardCustom || metrics.pxPerYard;
+      const losY = losYCustom !== null ? losYCustom : metrics.losY;
+      const center = { x: Math.round(width / 2), y: losY };
+
+      const extraMarginX = Math.max(width * 2, 1600);
+      const leftBoundary = -extraMarginX;
+      const rightBoundary = width + extraMarginX;
+      const totalWidth = rightBoundary - leftBoundary;
+
+      if (theme === 'chalkboard') {
+        rCtx.fillStyle = '#0f172a';
+        rCtx.fillRect(leftBoundary, -1200, totalWidth, height + 2400);
+      } else {
+        rCtx.fillStyle = '#14532d';
+        rCtx.fillRect(leftBoundary, -1200, totalWidth, height + 2400);
+
+        const fiveYardH = 5 * pxPerYard;
+        for (let yds = -25; yds < 15; yds += 5) {
+          const y = losY + (yds * pxPerYard);
+          const isEven = Math.abs(yds / 5) % 2 === 0;
+          rCtx.fillStyle = isEven ? '#15803d' : '#166534';
+          rCtx.fillRect(leftBoundary, y, totalWidth, fiveYardH);
+        }
+      }
+
+      const hashOffset = Math.min(180, width * 0.26);
+      const leftHash = center.x - hashOffset;
+      const rightHash = center.x + hashOffset;
+      const sidelineLeft = 14;
+      const sidelineRight = width - 14;
+
+      for (let yds = -25; yds <= 12; yds += 1) {
+        const y = losY + (yds * pxPerYard);
+        if (yds % 5 !== 0) {
+          rCtx.strokeStyle = (theme === 'chalkboard') ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.38)';
+          rCtx.lineWidth = 1;
+          rCtx.beginPath();
+          rCtx.moveTo(sidelineLeft, y);
+          rCtx.lineTo(sidelineLeft + 7, y);
+          rCtx.moveTo(sidelineRight - 7, y);
+          rCtx.lineTo(sidelineRight, y);
+          rCtx.moveTo(leftHash - 4, y);
+          rCtx.lineTo(leftHash + 4, y);
+          rCtx.moveTo(rightHash - 4, y);
+          rCtx.lineTo(rightHash + 4, y);
+          rCtx.stroke();
+        }
+      }
+
+      for (let yds = -25; yds <= 10; yds += 5) {
+        const y = losY + (yds * pxPerYard);
+        const isLos = (yds === 0);
+        const isFirstDown = (yds === -10);
+        const isBoundary = (yds === -25 || yds === 10);
+
+        if (isLos) {
+          rCtx.strokeStyle = '#38bdf8';
+          rCtx.lineWidth = 3.5;
+          rCtx.beginPath();
+          rCtx.moveTo(leftBoundary, y);
+          rCtx.lineTo(rightBoundary, y);
+          rCtx.stroke();
+        } else if (isFirstDown) {
+          rCtx.strokeStyle = '#facc15';
+          rCtx.lineWidth = 2.5;
+          rCtx.setLineDash([8, 6]);
+          rCtx.beginPath();
+          rCtx.moveTo(leftBoundary, y);
+          rCtx.lineTo(rightBoundary, y);
+          rCtx.stroke();
+          rCtx.setLineDash([]);
+        } else {
+          rCtx.strokeStyle = (theme === 'chalkboard')
+            ? (isBoundary ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.28)')
+            : (isBoundary ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)');
+          rCtx.lineWidth = isBoundary ? 2.5 : 1.5;
+          rCtx.beginPath();
+          rCtx.moveTo(leftBoundary, y);
+          rCtx.lineTo(rightBoundary, y);
+          rCtx.stroke();
+        }
+
+        rCtx.strokeStyle = (theme === 'chalkboard') ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.85)';
+        rCtx.lineWidth = 2;
+        rCtx.beginPath();
+        rCtx.moveTo(leftHash - 6, y);
+        rCtx.lineTo(leftHash + 6, y);
+        rCtx.moveTo(rightHash - 6, y);
+        rCtx.lineTo(rightHash + 6, y);
+        rCtx.stroke();
+
+        rCtx.save();
+        rCtx.fillStyle = isLos ? '#38bdf8' : (isFirstDown ? '#facc15' : (theme === 'chalkboard' ? '#94a3b8' : 'rgba(255,255,255,0.85)'));
+        rCtx.font = "bold 9px 'Oswald', sans-serif";
+        rCtx.textBaseline = 'middle';
+
+        let labelText = '';
+        if (yds === -25) labelText = '+25 YD';
+        else if (yds === -20) labelText = '+20 YD';
+        else if (yds === -15) labelText = '+15 YD';
+        else if (yds === -10) labelText = '+10 YD (1ST)';
+        else if (yds === -5) labelText = '+5 YD';
+        else if (yds === 0) labelText = 'L.O.S.';
+        else if (yds === 5) labelText = '-5 YD';
+        else if (yds === 10) labelText = '-10 YD';
+
+        rCtx.textAlign = 'left';
+        rCtx.fillText(labelText, sidelineLeft + 10, y - 5);
+        rCtx.textAlign = 'right';
+        rCtx.fillText(labelText, sidelineRight - 10, y - 5);
+        rCtx.restore();
+      }
+
+      rCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+      rCtx.lineWidth = 2;
+      rCtx.beginPath();
+      rCtx.moveTo(sidelineLeft, losY - 25 * pxPerYard);
+      rCtx.lineTo(sidelineLeft, losY + 12 * pxPerYard);
+      rCtx.moveTo(sidelineRight, losY - 25 * pxPerYard);
+      rCtx.lineTo(sidelineRight, losY + 12 * pxPerYard);
+      rCtx.stroke();
+    }
+
+    function drawInkSaverField(rCtx, width, height, pxPerYardCustom = null, losYCustom = null) {
+      const metrics = getFieldMetrics(height);
+      const pxPerYard = pxPerYardCustom || metrics.pxPerYard;
+      const losY = losYCustom !== null ? losYCustom : metrics.losY;
+      const center = { x: Math.round(width / 2), y: losY };
+      const extraMarginX = Math.max(width * 2, 1600);
+      const leftBoundary = -extraMarginX;
+      const rightBoundary = width + extraMarginX;
+      const totalWidth = rightBoundary - leftBoundary;
+
+      rCtx.fillStyle = '#ffffff';
+      rCtx.fillRect(leftBoundary, -1200, totalWidth, height + 2400);
+
+      const hashOffset = Math.min(180, width * 0.26);
+      const leftHash = center.x - hashOffset;
+      const rightHash = center.x + hashOffset;
+      const sidelineLeft = 14;
+      const sidelineRight = width - 14;
+
+      for (let yds = -25; yds <= 12; yds += 1) {
+        const y = losY + (yds * pxPerYard);
+        if (yds % 5 !== 0) {
+          rCtx.strokeStyle = '#cbd5e1';
+          rCtx.lineWidth = 1;
+          rCtx.beginPath();
+          rCtx.moveTo(sidelineLeft, y);
+          rCtx.lineTo(sidelineLeft + 7, y);
+          rCtx.moveTo(sidelineRight - 7, y);
+          rCtx.lineTo(sidelineRight, y);
+          rCtx.moveTo(leftHash - 4, y);
+          rCtx.lineTo(leftHash + 4, y);
+          rCtx.moveTo(rightHash - 4, y);
+          rCtx.lineTo(rightHash + 4, y);
+          rCtx.stroke();
+        }
+      }
+
+      for (let yds = -25; yds <= 10; yds += 5) {
+        const y = losY + (yds * pxPerYard);
+        const isLos = (yds === 0);
+        const isFirstDown = (yds === -10);
+
+        if (isLos) {
+          rCtx.strokeStyle = '#0284c7';
+          rCtx.lineWidth = 2.5;
+        } else if (isFirstDown) {
+          rCtx.strokeStyle = '#d97706';
+          rCtx.lineWidth = 2;
+          rCtx.setLineDash([6, 5]);
+        } else {
+          rCtx.strokeStyle = '#94a3b8';
+          rCtx.lineWidth = 1;
+          rCtx.setLineDash([]);
+        }
+
+        rCtx.beginPath();
+        rCtx.moveTo(leftBoundary, y);
+        rCtx.lineTo(rightBoundary, y);
+        rCtx.stroke();
+        rCtx.setLineDash([]);
+
+        rCtx.strokeStyle = '#64748b';
+        rCtx.lineWidth = 1.5;
+        rCtx.beginPath();
+        rCtx.moveTo(leftHash - 6, y);
+        rCtx.lineTo(leftHash + 6, y);
+        rCtx.moveTo(rightHash - 6, y);
+        rCtx.lineTo(rightHash + 6, y);
+        rCtx.stroke();
+
+        rCtx.save();
+        rCtx.fillStyle = isLos ? '#0284c7' : (isFirstDown ? '#b45309' : '#64748b');
+        rCtx.font = "bold 9px 'Oswald', sans-serif";
+        rCtx.textBaseline = 'middle';
+
+        let labelText = '';
+        if (yds === -25) labelText = '+25 YD';
+        else if (yds === -20) labelText = '+20 YD';
+        else if (yds === -15) labelText = '+15 YD';
+        else if (yds === -10) labelText = '+10 YD (1ST)';
+        else if (yds === -5) labelText = '+5 YD';
+        else if (yds === 0) labelText = 'L.O.S.';
+        else if (yds === 5) labelText = '-5 YD';
+        else if (yds === 10) labelText = '-10 YD';
+
+        rCtx.textAlign = 'left';
+        rCtx.fillText(labelText, sidelineLeft + 10, y - 5);
+        rCtx.textAlign = 'right';
+        rCtx.fillText(labelText, sidelineRight - 10, y - 5);
+        rCtx.restore();
+      }
+
+      rCtx.strokeStyle = '#334155';
+      rCtx.lineWidth = 1.5;
+      rCtx.beginPath();
+      rCtx.moveTo(sidelineLeft, losY - 25 * pxPerYard);
+      rCtx.lineTo(sidelineLeft, losY + 12 * pxPerYard);
+      rCtx.moveTo(sidelineRight, losY - 25 * pxPerYard);
+      rCtx.lineTo(sidelineRight, losY + 12 * pxPerYard);
+      rCtx.stroke();
+    }
+
+    function drawRoute(rCtx, route, startX, startY) {
+      if (!route || !route.points || route.points.length < 2) return;
+      const pts = route.points;
+
+      rCtx.save();
+
+      if (route.type === 'motion_run') {
+        if (pts.length === 2) {
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
+
+          rCtx.beginPath();
+          rCtx.moveTo(pts[0].x, pts[0].y);
+          rCtx.lineTo(midX, midY);
+          rCtx.strokeStyle = '#c084fc';
+          rCtx.lineWidth = 3;
+          rCtx.setLineDash([6, 5]);
+          rCtx.lineCap = 'round';
+          rCtx.stroke();
+          rCtx.setLineDash([]);
+
+          rCtx.beginPath();
+          rCtx.moveTo(midX, midY);
+          rCtx.lineTo(pts[1].x, pts[1].y);
+          rCtx.strokeStyle = '#d97706';
+          rCtx.lineWidth = 4;
+          rCtx.stroke();
+        } else {
+          rCtx.beginPath();
+          rCtx.moveTo(pts[0].x, pts[0].y);
+          rCtx.lineTo(pts[1].x, pts[1].y);
+          rCtx.strokeStyle = '#c084fc';
+          rCtx.lineWidth = 3;
+          rCtx.setLineDash([6, 5]);
+          rCtx.lineCap = 'round';
+          rCtx.stroke();
+          rCtx.setLineDash([]);
+
+          rCtx.beginPath();
+          rCtx.moveTo(pts[1].x, pts[1].y);
+          for (let i = 2; i < pts.length; i++) {
+            rCtx.lineTo(pts[i].x, pts[i].y);
+          }
+          rCtx.strokeStyle = '#d97706';
+          rCtx.lineWidth = 4;
+          rCtx.lineCap = 'round';
+          rCtx.stroke();
+        }
+
+        drawBallCap(rCtx, pts[pts.length - 1].x, pts[pts.length - 1].y);
+        rCtx.restore();
+        return;
+      }
+
+      rCtx.beginPath();
+      rCtx.moveTo(pts[0].x, pts[0].y);
+
+      for (let i = 1; i < pts.length; i++) {
+        rCtx.lineTo(pts[i].x, pts[i].y);
+      }
+
+      if (route.type === 'block') {
+        rCtx.strokeStyle = '#0284c7';
+        rCtx.lineWidth = 3.5;
+        rCtx.lineCap = 'butt';
+        rCtx.stroke();
+      } else if (route.type === 'carrier') {
+        rCtx.strokeStyle = '#d97706';
+        rCtx.lineWidth = 4;
+        rCtx.lineCap = 'round';
+        rCtx.stroke();
+      } else if (route.type === 'motion') {
+        rCtx.strokeStyle = '#9333ea';
+        rCtx.lineWidth = 2.5;
+        rCtx.setLineDash([6, 5]);
+        rCtx.lineCap = 'round';
+        rCtx.stroke();
+        rCtx.setLineDash([]);
+      } else if (route.type === 'rush') {
+        rCtx.strokeStyle = '#dc2626';
+        rCtx.lineWidth = 3.5;
+        rCtx.lineCap = 'round';
+        rCtx.stroke();
+      } else if (route.type === 'zone') {
+        rCtx.strokeStyle = '#0891b2';
+        rCtx.lineWidth = 2.5;
+        rCtx.setLineDash([6, 5]);
+        rCtx.lineCap = 'round';
+        rCtx.stroke();
+        rCtx.setLineDash([]);
+      } else {
+        rCtx.strokeStyle = '#ea580c';
+        rCtx.lineWidth = 3.5;
+        rCtx.lineCap = 'round';
+        rCtx.stroke();
+      }
+
+      const last = pts[pts.length - 1];
+      const prev = pts[Math.max(0, pts.length - 2)];
+      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+
+      if (route.cap === 'tbar' || route.type === 'block') {
+        drawTBlockCap(rCtx, last.x, last.y, angle);
+      } else if (route.cap === 'ball' || route.type === 'carrier') {
+        drawBallCap(rCtx, last.x, last.y);
+      } else if (route.cap === 'zone' || route.type === 'zone') {
+        drawZoneCircleCap(rCtx, last.x, last.y);
+      } else {
+        drawArrowHead(rCtx, last.x, last.y, angle, rCtx.strokeStyle);
+      }
+
+      rCtx.restore();
+    }
+
+    function drawZoneCircleCap(rCtx, x, y) {
+      rCtx.save();
+      rCtx.fillStyle = 'rgba(8, 145, 178, 0.25)';
+      rCtx.strokeStyle = '#0891b2';
+      rCtx.lineWidth = 2;
+      rCtx.beginPath();
+      rCtx.arc(x, y, 14, 0, Math.PI * 2);
+      rCtx.fill();
+      rCtx.stroke();
+      rCtx.restore();
+    }
+
+    function drawArrowHead(rCtx, toX, toY, angle, color) {
+      const headLen = 14;
+      rCtx.save();
+      rCtx.fillStyle = color;
+      rCtx.beginPath();
+      rCtx.moveTo(toX, toY);
+      rCtx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+      rCtx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+      rCtx.closePath();
+      rCtx.fill();
+      rCtx.restore();
+    }
+
+    function drawTBlockCap(rCtx, toX, toY, angle) {
+      const capLen = 13;
+      rCtx.save();
+      rCtx.strokeStyle = '#0284c7';
+      rCtx.lineWidth = 4;
+      rCtx.lineCap = 'square';
+      rCtx.beginPath();
+      rCtx.moveTo(toX + capLen * Math.cos(angle + Math.PI / 2), toY + capLen * Math.sin(angle + Math.PI / 2));
+      rCtx.lineTo(toX + capLen * Math.cos(angle - Math.PI / 2), toY + capLen * Math.sin(angle - Math.PI / 2));
+      rCtx.stroke();
+      rCtx.restore();
+    }
+
+    function drawBallCap(rCtx, toX, toY) {
+      rCtx.save();
+      rCtx.fillStyle = '#b45309';
+      rCtx.strokeStyle = '#ffffff';
+      rCtx.lineWidth = 1.5;
+      rCtx.beginPath();
+      rCtx.ellipse(toX, toY, 8, 5, -Math.PI / 4, 0, Math.PI * 2);
+      rCtx.fill();
+      rCtx.stroke();
+
+      rCtx.strokeStyle = '#ffffff';
+      rCtx.lineWidth = 1;
+      rCtx.beginPath();
+      rCtx.moveTo(toX - 4, toY + 4);
+      rCtx.lineTo(toX + 4, toY - 4);
+      rCtx.stroke();
+      rCtx.restore();
+    }
+
+    function drawPlayer(rCtx, player, overridePos = null) {
+      const px = overridePos ? overridePos.x : player.x;
+      const py = overridePos ? overridePos.y : player.y;
+      const isSelected = (selectedPlayer && selectedPlayer.id === player.id);
+      const isOffense = (player.type === 'offense');
+
+      rCtx.save();
+
+      if (isSelected) {
+        rCtx.beginPath();
+        rCtx.arc(px, py, 19, 0, Math.PI * 2);
+        rCtx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+        rCtx.fill();
+        rCtx.strokeStyle = '#38bdf8';
+        rCtx.lineWidth = 2.5;
+        rCtx.setLineDash([4, 3]);
+        rCtx.stroke();
+        rCtx.setLineDash([]);
+      }
+
+      rCtx.beginPath();
+      rCtx.arc(px, py, 13, 0, Math.PI * 2);
+
+      if (isOffense) {
+        rCtx.fillStyle = player.isLine ? '#0369a1' : '#059669';
+        rCtx.strokeStyle = '#ffffff';
+      } else {
+        rCtx.fillStyle = '#dc2626';
+        rCtx.strokeStyle = '#ffffff';
+      }
+
+      rCtx.lineWidth = 2;
+      rCtx.fill();
+      rCtx.stroke();
+
+      rCtx.fillStyle = '#ffffff';
+      rCtx.font = "bold 10px 'Oswald', sans-serif";
+      rCtx.textAlign = 'center';
+      rCtx.textBaseline = 'middle';
+      rCtx.fillText(player.label || player.role, px, py);
+
+      rCtx.restore();
+    }
+
+    function render() {
+      if (!canvas.width || !canvas.height) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(viewTransform.offsetX, viewTransform.offsetY);
+      ctx.scale(viewTransform.scale, viewTransform.scale);
+
+      drawField(ctx, canvas.width, canvas.height, fieldTheme);
+
+      players.forEach(p => {
+        drawRoute(ctx, p.route, p.x, p.y);
+      });
+
+      if (isDrawing && currentDrawingPoints.length > 0 && selectedPlayer) {
+        const activeRouteType = activeTool;
+        const previewPts = [...currentDrawingPoints];
+        if (cursorWorldPos) {
+          previewPts.push({ x: cursorWorldPos.x, y: cursorWorldPos.y });
+        }
+
+        if (previewPts.length >= 2) {
+          drawRoute(ctx, {
+            type: activeRouteType,
+            cap: activeRouteType === 'block' ? 'tbar' : ((activeRouteType === 'carrier' || activeRouteType === 'motion_run') ? 'ball' : (activeRouteType === 'zone' ? 'zone' : 'arrow')),
+            points: previewPts
+          }, selectedPlayer.x, selectedPlayer.y);
+        }
+
+        currentDrawingPoints.forEach((pt, idx) => {
+          if (idx === 0) return;
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        });
+      }
+
+      players.forEach(p => {
+        const currentPos = (isSimulating || simProgress > 0)
+          ? getInterpolatedPosition(p, simProgress)
+          : null;
+        drawPlayer(ctx, p, currentPos);
+      });
+
+      ctx.restore();
+    }
+
+    function getInterpolatedPosition(player, progress) {
+      if (!player.route || !player.route.points || player.route.points.length < 2) {
+        return { x: player.x, y: player.y };
+      }
+
+      const pts = player.route.points;
+      let totalDist = 0;
+      const segDists = [];
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+        segDists.push(d);
+        totalDist += d;
+      }
+
+      if (totalDist === 0) return { x: player.x, y: player.y };
+
+      const targetDist = totalDist * Math.min(1, Math.max(0, progress));
+      let accum = 0;
+
+      for (let i = 0; i < segDists.length; i++) {
+        if (accum + segDists[i] >= targetDist) {
+          const segProgress = (targetDist - accum) / segDists[i];
+          return {
+            x: pts[i].x + (pts[i + 1].x - pts[i].x) * segProgress,
+            y: pts[i].y + (pts[i + 1].y - pts[i].y) * segProgress
+          };
+        }
+        accum += segDists[i];
+      }
+
+      return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+    }
+
+    function runSimulation() {
+      if (isSimulating) return;
+      isSimulating = true;
+      simStartTime = performance.now();
+
+      function step(now) {
+        if (!isSimulating) return;
+        const elapsed = now - simStartTime;
+        simProgress = Math.min(1, elapsed / SIM_DURATION);
+        render();
+
+        if (simProgress < 1) {
+          requestAnimationFrame(step);
+        } else {
+          isSimulating = false;
+          triggerHaptic();
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    function stopSimulation() {
+      isSimulating = false;
+      simProgress = 0;
+      render();
+    }
+
+    function findClosestPlayer(pos) {
+      const radius = 34;
+      let closest = null;
+      let minD = radius;
+
+      players.forEach(p => {
+        const d = Math.hypot(p.x - pos.x, p.y - pos.y);
+        if (d < minD) {
+          minD = d;
+          closest = p;
+        }
+      });
+      return closest;
+    }
+
+    function finishDrawingRoute() {
+      if (!isDrawing || !selectedPlayer) return;
+      if (currentDrawingPoints.length >= 2) {
+        saveHistory();
+        triggerHaptic();
+        const capType = (activeTool === 'block') ? 'tbar' :
+                       ((activeTool === 'carrier' || activeTool === 'motion_run') ? 'ball' :
+                       ((activeTool === 'zone') ? 'zone' : 'arrow'));
+        selectedPlayer.route = {
+          type: activeTool,
+          cap: capType,
+          points: [...currentDrawingPoints]
+        };
+        showToast(`Route assigned to ${selectedPlayer.label}`);
+      } else {
+        showToast("Route cancelled");
+      }
+      isDrawing = false;
+      currentDrawingPoints = [];
+      cursorWorldPos = null;
+      hideTouchReticle();
+      updateInspector();
+      updateHUDStatus();
+      render();
+    }
+
+    function onPointerDown(pos, isRightClick = false) {
+      if (isSimulating) stopSimulation();
+
+      if (isRightClick) {
+        if (isDrawing) finishDrawingRoute();
+        return;
+      }
+
+      const hit = findClosestPlayer(pos);
+
+      if (activeTool === 'erase') {
+        if (hit && hit.route) {
+          saveHistory();
+          triggerHaptic();
+          hit.route = null;
+          showToast(`Erased route for ${hit.label}`);
+          render();
+        }
+        return;
+      }
+
+      if (activeTool === 'select') {
+        if (isDrawing) finishDrawingRoute();
+
+        if (hit) {
+          triggerHaptic();
+          selectedPlayer = hit;
+          updateInspector();
+          saveHistory();
+          isDragging = true;
+          dragOffset = { x: hit.x - pos.x, y: hit.y - pos.y };
+        } else {
+          selectedPlayer = null;
+          updateInspector();
+          isPanningCamera = true;
+          panStart = { x: pos.canvasX - viewTransform.offsetX, y: pos.canvasY - viewTransform.offsetY };
+        }
+        render();
+        return;
+      }
+
+      if (!isDrawing) {
+        if (hit) {
+          triggerHaptic();
+          selectedPlayer = hit;
+          updateInspector();
+          isDrawing = true;
+          currentDrawingPoints = [{ x: hit.x, y: hit.y }];
+          updateHUDStatus();
+          showTouchReticle(pos.rawClientX, pos.rawClientY);
+        } else if (selectedPlayer) {
+          triggerHaptic();
+          isDrawing = true;
+          currentDrawingPoints = [{ x: selectedPlayer.x, y: selectedPlayer.y }, { x: pos.x, y: pos.y }];
+          updateHUDStatus();
+          showTouchReticle(pos.rawClientX, pos.rawClientY);
+        } else {
+          isPanningCamera = true;
+          panStart = { x: pos.canvasX - viewTransform.offsetX, y: pos.canvasY - viewTransform.offsetY };
+        }
+      } else {
+        triggerHaptic();
+        currentDrawingPoints.push({ x: pos.x, y: pos.y });
+        showTouchReticle(pos.rawClientX, pos.rawClientY);
+      }
+
+      render();
+    }
+
+    function showTouchReticle(clientX, clientY) {
+      const reticle = document.getElementById('touchGuideReticle');
+      if (reticle && clientX && clientY) {
+        const wrapper = document.getElementById('canvasWrapper')?.getBoundingClientRect();
+        if (wrapper) {
+          reticle.style.left = `${clientX - wrapper.left}px`;
+          reticle.style.top = `${clientY - wrapper.top}px`;
+          reticle.classList.remove('hidden');
+        }
+      }
+    }
+
+    function hideTouchReticle() {
+      const reticle = document.getElementById('touchGuideReticle');
+      if (reticle) reticle.classList.add('hidden');
+    }
+
+    function onPointerMove(pos) {
+      if (isPanningCamera) {
+        viewTransform.offsetX = pos.canvasX - panStart.x;
+        viewTransform.offsetY = pos.canvasY - panStart.y;
+        render();
+        return;
+      }
+
+      if (isDragging && selectedPlayer) {
+        const newX = pos.x + dragOffset.x;
+        const newY = pos.y + dragOffset.y;
+        const dx = newX - selectedPlayer.x;
+        const dy = newY - selectedPlayer.y;
+
+        selectedPlayer.x = newX;
+        selectedPlayer.y = newY;
+
+        if (selectedPlayer.route && selectedPlayer.route.points) {
+          selectedPlayer.route.points.forEach(pt => {
+            pt.x += dx;
+            pt.y += dy;
+          });
+        }
+        render();
+        return;
+      }
+
+      if (isDrawing && selectedPlayer) {
+        cursorWorldPos = { x: pos.x, y: pos.y };
+        showTouchReticle(pos.rawClientX, pos.rawClientY);
+        render();
+      }
+    }
+
+    function onPointerUp() {
+      isPanningCamera = false;
+      if (isDragging) isDragging = false;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        onPointerDown(getCanvasCoords(e, false), true);
+        return;
+      }
+      onPointerDown(getCanvasCoords(e, false), false);
+    });
+
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (isDrawing) finishDrawingRoute();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.key === 'Escape' || e.key === 'Enter') && isDrawing) finishDrawingRoute();
+    });
+
+    canvas.addEventListener('dblclick', (e) => {
+      if (isDrawing) finishDrawingRoute();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging || isDrawing || isPanningCamera) onPointerMove(getCanvasCoords(e, isDrawing));
+    });
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const screenPoint = {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      setZoomAtCenter(viewTransform.scale * zoomFactor, screenPoint);
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        isDragging = false;
+        isDrawing = false;
+        isPanningCamera = false;
+        hideTouchReticle();
+
+        const rect = canvas.getBoundingClientRect();
+        const t1 = {
+          x: (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+        };
+        const t2 = {
+          x: (e.touches[1].clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.touches[1].clientY - rect.top) * (canvas.height / rect.height)
+        };
+
+        initialPinchDist = Math.hypot(t2.x - t1.x, t2.y - t1.y);
+        initialPinchCenter = { x: (t1.x + t2.x) / 2, y: (t1.y + t2.y) / 2 };
+        initialPinchTransform = { ...viewTransform };
+      } else if (e.touches.length === 1) {
+        onPointerDown(getCanvasCoords(e, false));
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initialPinchDist && initialPinchCenter && initialPinchTransform) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const t1 = {
+          x: (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+        };
+        const t2 = {
+          x: (e.touches[1].clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.touches[1].clientY - rect.top) * (canvas.height / rect.height)
+        };
+
+        const currentDist = Math.hypot(t2.x - t1.x, t2.y - t1.y);
+        const currentCenter = { x: (t1.x + t2.x) / 2, y: (t1.y + t2.y) / 2 };
+        const scaleChange = currentDist / initialPinchDist;
+        const targetScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchTransform.scale * scaleChange));
+
+        const worldPivotX = (initialPinchCenter.x - initialPinchTransform.offsetX) / initialPinchTransform.scale;
+        const worldPivotY = (initialPinchCenter.y - initialPinchTransform.offsetY) / initialPinchTransform.scale;
+
+        viewTransform.scale = targetScale;
+        viewTransform.offsetX = currentCenter.x - (worldPivotX * targetScale);
+        viewTransform.offsetY = currentCenter.y - (worldPivotY * targetScale);
+
+        updateZoomBadge();
+        render();
+      } else if (e.touches.length === 1) {
+        if (isDragging || isDrawing || isPanningCamera) {
+          e.preventDefault();
+          onPointerMove(getCanvasCoords(e, isDrawing));
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        initialPinchDist = null;
+        initialPinchCenter = null;
+        initialPinchTransform = null;
+      }
+      if (e.touches.length === 0) onPointerUp();
+    });
+
+    window.addEventListener('touchcancel', () => {
+      initialPinchDist = null;
+      initialPinchCenter = null;
+      initialPinchTransform = null;
+      onPointerUp();
+    });
+
+    function applyQuickRoutePreset(presetName) {
+      if (!selectedPlayer) return;
+      saveHistory();
+      triggerHaptic();
+
+      const { pxPerYard } = getFieldMetrics(canvas.height);
+      const px = selectedPlayer.x;
+      const py = selectedPlayer.y;
+      const center = getFieldCenter();
+      const isRightSide = (px >= center.x);
+
+      let points = [{ x: px, y: py }];
+      let type = 'route';
+      let cap = 'arrow';
+
+      switch (presetName) {
+        case 'hitch':
+          points.push({ x: px, y: py - (5 * pxPerYard) });
+          points.push({ x: px, y: py - (4 * pxPerYard) });
+          break;
+        case 'flat':
+          points.push({ x: isRightSide ? px + (4 * pxPerYard) : px - (4 * pxPerYard), y: py - (1.5 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (10 * pxPerYard) : px - (10 * pxPerYard), y: py - (2.5 * pxPerYard) });
+          break;
+        case 'slant':
+          points.push({ x: px, y: py - (3 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (8 * pxPerYard) : px + (8 * pxPerYard), y: py - (8 * pxPerYard) });
+          break;
+        case 'out':
+          points.push({ x: px, y: py - (6 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (7 * pxPerYard) : px - (7 * pxPerYard), y: py - (6 * pxPerYard) });
+          break;
+        case 'dig':
+          points.push({ x: px, y: py - (10 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (12 * pxPerYard) : px + (12 * pxPerYard), y: py - (10 * pxPerYard) });
+          break;
+        case 'comeback':
+          points.push({ x: px, y: py - (12 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (3 * pxPerYard) : px - (3 * pxPerYard), y: py - (10 * pxPerYard) });
+          break;
+        case 'deep_out':
+          points.push({ x: px, y: py - (11 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (8 * pxPerYard) : px - (8 * pxPerYard), y: py - (11 * pxPerYard) });
+          break;
+        case 'corner':
+          points.push({ x: px, y: py - (8 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (10 * pxPerYard) : px - (10 * pxPerYard), y: py - (15 * pxPerYard) });
+          break;
+        case 'post':
+          points.push({ x: px, y: py - (8 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (10 * pxPerYard) : px + (10 * pxPerYard), y: py - (15 * pxPerYard) });
+          break;
+        case 'go':
+          points.push({ x: px, y: py - (18 * pxPerYard) });
+          break;
+        case 'drag':
+          points.push({ x: px, y: py - (3 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (18 * pxPerYard) : px + (18 * pxPerYard), y: py - (3 * pxPerYard) });
+          break;
+        case 'wheel':
+          points.push({ x: isRightSide ? px + (6 * pxPerYard) : px - (6 * pxPerYard), y: py - (1 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (8 * pxPerYard) : px - (8 * pxPerYard), y: py - (14 * pxPerYard) });
+          break;
+        case 'screen':
+          points.push({ x: px, y: py + (1 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (4 * pxPerYard) : px + (4 * pxPerYard), y: py - (1 * pxPerYard) });
+          break;
+        case 'pass_block':
+          type = 'block';
+          cap = 'tbar';
+          points.push({ x: px, y: py - (1.6 * pxPerYard) });
+          break;
+        case 'drive_block':
+          type = 'block';
+          cap = 'tbar';
+          points.push({ x: px, y: py - (3 * pxPerYard) });
+          break;
+        case 'pull_lead':
+          type = 'block';
+          cap = 'tbar';
+          points.push({ x: px, y: py + (1.5 * pxPerYard) });
+          points.push({ x: isRightSide ? px - (9 * pxPerYard) : px + (9 * pxPerYard), y: py - (3 * pxPerYard) });
+          break;
+        case 'run_inside':
+          type = 'carrier';
+          cap = 'ball';
+          points.push({ x: isRightSide ? px - (3 * pxPerYard) : px + (3 * pxPerYard), y: py - (3 * pxPerYard) });
+          points.push({ x: center.x, y: center.y - (6 * pxPerYard) });
+          break;
+        case 'run_sweep':
+          type = 'carrier';
+          cap = 'ball';
+          points.push({ x: isRightSide ? px + (8 * pxPerYard) : px - (8 * pxPerYard), y: py - (2 * pxPerYard) });
+          points.push({ x: isRightSide ? px + (12 * pxPerYard) : px - (12 * pxPerYard), y: py - (8 * pxPerYard) });
+          break;
+        case 'motion_run':
+          type = 'motion_run';
+          cap = 'ball';
+          const sweepDir = isRightSide ? -1 : 1;
+          points.push({ x: px + (sweepDir * 14 * pxPerYard), y: py + (1.5 * pxPerYard) });
+          points.push({ x: px + (sweepDir * 20 * pxPerYard), y: py - (3 * pxPerYard) });
+          points.push({ x: px + (sweepDir * 22 * pxPerYard), y: py - (14 * pxPerYard) });
+          break;
+        case 'def_rush':
+          type = 'rush';
+          cap = 'arrow';
+          points.push({ x: px, y: py + (7 * pxPerYard) });
+          break;
+        case 'def_zone':
+          type = 'zone';
+          cap = 'zone';
+          points.push({ x: px, y: py - (7 * pxPerYard) });
+          break;
+      }
+
+      selectedPlayer.route = { type, cap, points };
+      showToast(`Attached ${presetName.toUpperCase()} to ${selectedPlayer.label}`);
+      updateInspector();
+      render();
+    }
+
+    function applyAllLinemenPassPro() {
+      saveHistory();
+      triggerHaptic();
+      const { pxPerYard } = getFieldMetrics(canvas.height);
+      let count = 0;
+
+      players.forEach(p => {
+        if (p.type === 'offense' && (p.isLine || ['C', 'LG', 'RG', 'LT', 'RT', 'QG', 'SG', 'ST'].includes(p.role))) {
+          p.route = {
+            type: 'block',
+            cap: 'tbar',
+            points: [{ x: p.x, y: p.y }, { x: p.x, y: p.y - (1.6 * pxPerYard) }]
+          };
+          count++;
+        }
+      });
+      render();
+      showToast(`Applied Pass Protection to ${count} Linemen`);
+    }
+
+    function applyLinemenZoneBlock(direction = 'left') {
+      saveHistory();
+      triggerHaptic();
+      const { pxPerYard } = getFieldMetrics(canvas.height);
+      const dx = (direction === 'left' ? -1 : 1) * (2.8 * pxPerYard);
+
+      players.forEach(p => {
+        if (p.type === 'offense' && (p.isLine || ['C', 'LG', 'RG', 'LT', 'RT', 'TE', 'QG', 'SG', 'ST', 'TE1', 'TE2'].includes(p.role))) {
+          p.route = {
+            type: 'block',
+            cap: 'tbar',
+            points: [{ x: p.x, y: p.y }, { x: p.x + dx, y: p.y - (2.2 * pxPerYard) }]
+          };
+        }
+      });
+      render();
+      showToast(`Applied Zone Block ${direction.toUpperCase()} to O-Line`);
+    }
+
+    function clearAllRoutesOnField() {
+      saveHistory();
+      triggerHaptic();
+      players.forEach(p => { p.route = null; });
+      selectedPlayer = null;
+      updateInspector();
+      render();
+      showToast("Cleared all player routes");
+    }
+
+    function updateHUDStatus() {
+      const hudText = document.getElementById('activeToolHUDText');
+      const finishBtn = document.getElementById('hudFinishRouteBtn');
+      if (finishBtn) {
+        if (isDrawing) finishBtn.classList.remove('hidden');
+        else finishBtn.classList.add('hidden');
+      }
+
+      if (!hudText) return;
+
+      if (isDrawing) {
+        hudText.textContent = `Click to cut (${currentDrawingPoints.length} node${currentDrawingPoints.length === 1 ? '' : 's'}) &bull; R-Click to Finish`;
+        return;
+      }
+
+      const labels = {
+        select: 'Mode: Move & Select',
+        route: 'Mode: Draw Pass Route (Multi-Cut)',
+        block: 'Mode: Draw Blocking (Multi-Cut)',
+        carrier: 'Mode: Draw Ball Carrier',
+        motion: 'Mode: Pre-Snap Motion',
+        motion_run: 'Mode: Motion then Run',
+        rush: 'Mode: Blitz / Pass Rush',
+        zone: 'Mode: Defensive Zone Drop',
+        erase: 'Mode: Eraser (Tap to remove)'
+      };
+      hudText.textContent = labels[activeTool] || `Mode: ${activeTool.toUpperCase()}`;
+    }
+
+    function updateInspector() {
+      const sheet = document.getElementById('mobileInspectorSheet');
+      const routeSheet = document.getElementById('mobileRouteSheet');
+
+      if (!selectedPlayer) {
+        if (sheet) sheet.classList.add('hidden');
+        if (routeSheet) routeSheet.classList.add('hidden');
+        return;
+      }
+
+      const tag = document.getElementById('inspRoleTag');
+      const input = document.getElementById('inspRoleInput');
+      const teamLabel = document.getElementById('inspTeamLabel');
+      const quickBadge = document.getElementById('quickRoutePlayerBadge');
+
+      if (tag) tag.textContent = selectedPlayer.label || selectedPlayer.role;
+      if (input) input.value = selectedPlayer.label || selectedPlayer.role;
+      if (teamLabel) teamLabel.textContent = selectedPlayer.type === 'offense' ? 'Offense' : 'Defense';
+      if (quickBadge) quickBadge.textContent = selectedPlayer.label || selectedPlayer.role;
+
+      if (sheet) sheet.classList.remove('hidden');
+    }
+
+    function loadFormation(formationKey, keepRoutes = false) {
+      saveHistory();
+      const center = getFieldCenter();
+      let preset = FORMATION_PRESETS[formationKey];
+
+      if (!preset) {
+        const customs = loadCustomFormations();
+        if (customs[formationKey]) {
+          preset = customs[formationKey];
+        } else {
+          preset = FORMATION_PRESETS.single_wing_beast;
+          formationKey = 'single_wing_beast';
+        }
+      }
+
+      currentFormationKey = formationKey;
+      currentFormationName = getFormationName(formationKey);
+
+      let currentDefense = players.filter(p => p.type === 'defense');
+      if (currentDefense.length === 0) {
+        currentDefense = DEFENSE_PRESETS['5-3'].players.map(p => ({
+          ...p,
+          x: center.x + p.x,
+          y: center.y + p.y,
+          route: null
+        }));
+      }
+
+      const newOffense = preset.players.map(p => ({
+        ...p,
+        x: center.x + p.x,
+        y: center.y + p.y,
+        route: keepRoutes ? (players.find(curr => curr.id === p.id)?.route || null) : null
+      }));
+
+      players = [...newOffense, ...currentDefense];
+
+      setFormationFilter(formationKey);
+      updateHeaderPlayTitle();
+      render();
+    }
+
+    function loadDefense(defenseKey) {
+      saveHistory();
+      const center = getFieldCenter();
+      const preset = DEFENSE_PRESETS[defenseKey] || DEFENSE_PRESETS['5-3'];
+
+      const currentOffense = players.filter(p => p.type === 'offense');
+
+      const newDefense = preset.players.map(p => ({
+        ...p,
+        x: center.x + p.x,
+        y: center.y + p.y,
+        route: null
+      }));
+
+      players = [...currentOffense, ...newDefense];
+      showToast(`Loaded ${preset.name} Defense`);
+      render();
+    }
+
+    function setFormationFilter(formationKey) {
+      activeFormationFilter = formationKey;
+      const select = document.getElementById('formationFilterSelect');
+      if (select && select.value !== formationKey) {
+        select.value = formationKey;
+      }
+      refreshSavedPlaysList();
+    }
+
+    function refreshSavedPlaysList() {
+      const container = document.getElementById('savedPlaysList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const plays = loadSavedPlays();
+      const filtered = (activeFormationFilter === 'ALL')
+        ? plays
+        : plays.filter(p => p.formationKey === activeFormationFilter);
+
+      const bannerName = document.getElementById('filterFormationNameText');
+      const badgeCount = document.getElementById('filteredPlaysCountBadge');
+      if (bannerName) {
+        bannerName.textContent = (activeFormationFilter === 'ALL') ? 'All Formations' : getFormationName(activeFormationFilter);
+      }
+      if (badgeCount) {
+        badgeCount.textContent = `${filtered.length} play${filtered.length === 1 ? '' : 's'}`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-3 text-center bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-400">
+            No plays in this formation yet.<br>
+            <button id="createFirstPlayBtn" class="mt-2 text-emerald-400 font-bold underline">Create a play</button>
+          </div>
+        `;
+        document.getElementById('createFirstPlayBtn')?.addEventListener('click', () => {
+          document.getElementById('newPlayBtn')?.click();
+        });
+        return;
+      }
+
+      filtered.forEach((p, idx) => {
+        const item = document.createElement('div');
+        item.className = 'play-card-item group p-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 flex items-center justify-between transition cursor-pointer select-none';
+        item.draggable = true;
+        item.dataset.playId = p.id;
+
+        const typeColor = (p.type === 'run') ? 'text-amber-400' : ((p.type === 'rpo') ? 'text-purple-400' : (p.type === 'screen' ? 'text-teal-400' : 'text-sky-400'));
+        const typeIcon = (p.type === 'run') ? 'fa-football' : 'fa-arrow-trend-up';
+
+        const isFirst = (idx === 0);
+        const isLast = (idx === filtered.length - 1);
+        const hasNotes = !!(p.notes && p.notes.trim().length > 0);
+
+        item.innerHTML = `
+          <div class="flex items-center space-x-2 truncate min-w-0 mr-1 flex-1">
+            <span class="drag-handle text-slate-500 hover:text-sky-400 px-1 py-1 cursor-grab" title="Drag to reorder play">
+              <i class="fa-solid fa-grip-vertical text-xs"></i>
+            </span>
+            <i class="fa-solid ${typeIcon} ${typeColor} text-xs shrink-0"></i>
+            <div class="truncate">
+              <div class="flex items-center space-x-1">
+                <span class="font-bold text-white text-xs truncate leading-snug">${p.name}</span>
+                ${hasNotes ? `<i class="fa-solid fa-comment-dots text-[10px] text-amber-400 shrink-0" title="Has coaching comments"></i>` : ''}
+              </div>
+              <div class="text-[10px] text-slate-400 truncate">${resolvePlayFormationName(p)}</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button class="move-play-up-btn w-5 h-5 rounded bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition ${isFirst ? 'opacity-25 cursor-not-allowed' : ''}" title="Move Play Up" ${isFirst ? 'disabled' : ''}>
+              <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button class="move-play-down-btn w-5 h-5 rounded bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition ${isLast ? 'opacity-25 cursor-not-allowed' : ''}" title="Move Play Down" ${isLast ? 'disabled' : ''}>
+              <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <button class="delete-play-btn w-5 h-5 rounded hover:bg-red-950/60 text-slate-500 hover:text-red-400 flex items-center justify-center text-[10px] transition ml-1" title="Delete Play">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `;
+
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.delete-play-btn') || e.target.closest('.move-play-up-btn') || e.target.closest('.move-play-down-btn') || e.target.closest('.drag-handle')) return;
+          loadPlayIntoEditor(p);
+        });
+
+        item.querySelector('.move-play-up-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          movePlayOrder(p.id, -1);
+        });
+
+        item.querySelector('.move-play-down-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          movePlayOrder(p.id, 1);
+        });
+
+        item.querySelector('.delete-play-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deletePlayRecord(p.id);
+        });
+
+        item.addEventListener('dragstart', (e) => {
+          draggedPlayId = p.id;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', p.id);
+          setTimeout(() => item.classList.add('play-card-dragging'), 0);
+        });
+
+        item.addEventListener('dragend', () => {
+          draggedPlayId = null;
+          item.classList.remove('play-card-dragging');
+          document.querySelectorAll('.play-card-item').forEach(el => {
+            el.classList.remove('play-drag-over-top', 'play-drag-over-bottom');
+          });
+        });
+
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (!draggedPlayId || draggedPlayId === p.id) return;
+          e.dataTransfer.dropEffect = 'move';
+
+          const rect = item.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (e.clientY < midY) {
+            item.classList.add('play-drag-over-top');
+            item.classList.remove('play-drag-over-bottom');
+          } else {
+            item.classList.add('play-drag-over-bottom');
+            item.classList.remove('play-drag-over-top');
+          }
+        });
+
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('play-drag-over-top', 'play-drag-over-bottom');
+        });
+
+        item.addEventListener('drop', (e) => {
+          e.preventDefault();
+          item.classList.remove('play-drag-over-top', 'play-drag-over-bottom');
+          if (!draggedPlayId || draggedPlayId === p.id) return;
+
+          const rect = item.getBoundingClientRect();
+          const placeBefore = (e.clientY < rect.top + rect.height / 2);
+          reorderPlayToTarget(draggedPlayId, p.id, placeBefore);
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    function reorderPlayToTarget(sourcePlayId, targetPlayId, placeBefore = true) {
+      const allPlays = loadSavedPlays();
+      const sourceIdx = allPlays.findIndex(p => p.id === sourcePlayId);
+      if (sourceIdx < 0) return;
+
+      const [movedPlay] = allPlays.splice(sourceIdx, 1);
+      const targetIdx = allPlays.findIndex(p => p.id === targetPlayId);
+
+      if (targetIdx < 0) {
+        allPlays.push(movedPlay);
+      } else {
+        const insertIdx = placeBefore ? targetIdx : targetIdx + 1;
+        allPlays.splice(insertIdx, 0, movedPlay);
+      }
+
+      savePlaysToStorage(allPlays);
+      triggerHaptic();
+      refreshSavedPlaysList();
+      showToast(`Reordered "${movedPlay.name}"`);
+    }
+
+    function movePlayOrder(playId, direction) {
+      const allPlays = loadSavedPlays();
+      const currentFiltered = (activeFormationFilter === 'ALL')
+        ? allPlays
+        : allPlays.filter(p => p.formationKey === activeFormationFilter);
+
+      const filteredIdx = currentFiltered.findIndex(p => p.id === playId);
+      if (filteredIdx < 0) return;
+
+      const targetFilteredIdx = filteredIdx + direction;
+      if (targetFilteredIdx < 0 || targetFilteredIdx >= currentFiltered.length) return;
+
+      const targetPlay = currentFiltered[targetFilteredIdx];
+
+      const masterIdxA = allPlays.findIndex(p => p.id === playId);
+      const masterIdxB = allPlays.findIndex(p => p.id === targetPlay.id);
+
+      if (masterIdxA >= 0 && masterIdxB >= 0) {
+        const temp = allPlays[masterIdxA];
+        allPlays[masterIdxA] = allPlays[masterIdxB];
+        allPlays[masterIdxB] = temp;
+
+        savePlaysToStorage(allPlays);
+        triggerHaptic();
+        refreshSavedPlaysList();
+        showToast("Reordered play list");
+      }
+    }
+
+    function loadPlayIntoEditor(playData) {
+      saveHistory();
+      const center = getFieldCenter();
+
+      currentFormationKey = playData.formationKey || 'single_wing_beast';
+      currentFormationName = resolvePlayFormationName(playData);
+      currentPlayType = playData.type || 'run';
+      setPlayNotes(playData.notes || '');
+      updatePlayTypeUI();
+
+      if (playData.players && playData.players.length > 0) {
+        const loadedPlayers = playData.players.map(p => ({
+          ...p,
+          x: center.x + p.x,
+          y: center.y + p.y,
+          route: p.route ? {
+            ...p.route,
+            points: p.route.points.map(pt => ({ x: center.x + pt.x, y: center.y + pt.y }))
+          } : null
+        }));
+
+        const hasDefense = loadedPlayers.some(p => p.type === 'defense');
+        if (!hasDefense) {
+          const defKey = playData.defenseKey || '5-3';
+          const defPreset = DEFENSE_PRESETS[defKey] || DEFENSE_PRESETS['5-3'];
+          const defPlayers = defPreset.players.map(p => ({
+            ...p,
+            x: center.x + p.x,
+            y: center.y + p.y,
+            route: null
+          }));
+          players = [...loadedPlayers, ...defPlayers];
+        } else {
+          players = loadedPlayers;
+        }
+      }
+
+      setFormationFilter(currentFormationKey);
+      document.getElementById('activePlayNameHeader').textContent = playData.name;
+      showToast(`Loaded "${playData.name}"`);
+      render();
+    }
+
+    function getRelativePlayData(nameOverride = null, targetFormationKey = null) {
+      const center = getFieldCenter();
+      const name = nameOverride || document.getElementById('activePlayNameHeader').textContent || 'Untitled Play';
+      const formKey = targetFormationKey || currentFormationKey;
+      const formName = getFormationName(formKey);
+
+      return {
+        id: 'play_' + Date.now(),
+        name: name,
+        formationKey: formKey,
+        formationName: formName,
+        type: currentPlayType,
+        notes: currentPlayNotes,
+        players: players.map(p => ({
+          id: p.id,
+          label: p.label,
+          role: p.role,
+          type: p.type,
+          isLine: !!p.isLine,
+          x: p.x - center.x,
+          y: p.y - center.y,
+          route: p.route ? {
+            type: p.route.type,
+            cap: p.route.cap,
+            points: p.route.points.map(pt => ({ x: pt.x - center.x, y: pt.y - center.y }))
+          } : null
+        }))
+      };
+    }
+
+    function saveCurrentPlay() {
+      const drawerNotes = document.getElementById('playNotesTextarea')?.value;
+      if (drawerNotes !== undefined) currentPlayNotes = drawerNotes.trim();
+
+      const plays = loadSavedPlays();
+      const currentName = document.getElementById('activePlayNameHeader').textContent;
+      const existingIdx = plays.findIndex(p => p.name === currentName && p.formationKey === currentFormationKey);
+
+      const playData = getRelativePlayData(currentName, currentFormationKey);
+
+      if (existingIdx >= 0) {
+        plays[existingIdx] = { ...playData, id: plays[existingIdx].id };
+        showToast(`Saved updates to "${currentName}"`);
+      } else {
+        plays.unshift(playData);
+        showToast(`Saved new play "${currentName}"`);
+      }
+
+      savePlaysToStorage(plays);
+      populateFormationDropdowns();
+      refreshSavedPlaysList();
+      updateNotesIndicators();
+    }
+
+    function deletePlayRecord(playId) {
+      let plays = loadSavedPlays();
+      const target = plays.find(p => p.id === playId);
+      if (!target) return;
+      plays = plays.filter(p => p.id !== playId);
+      savePlaysToStorage(plays);
+      showToast(`Deleted play "${target.name}"`);
+      refreshSavedPlaysList();
+    }
+
+    function flipFieldHorizontally() {
+      saveHistory();
+      triggerHaptic();
+      const center = getFieldCenter();
+
+      players.forEach(p => {
+        const offset = p.x - center.x;
+        p.x = center.x - offset;
+
+        if (p.route && p.route.points) {
+          p.route.points.forEach(pt => {
+            const ptOffset = pt.x - center.x;
+            pt.x = center.x - ptOffset;
+          });
+        }
+      });
+
+      const header = document.getElementById('activePlayNameHeader');
+      if (header) {
+        let name = header.textContent;
+        if (name.includes('Right')) name = name.replace('Right', 'Left');
+        else if (name.includes('Left')) name = name.replace('Left', 'Right');
+        else if (name.includes('Rt')) name = name.replace('Rt', 'Lt');
+        else if (name.includes('Lt')) name = name.replace('Lt', 'Rt');
+        else name += ' (Flipped)';
+        header.textContent = name;
+      }
+
+      showToast("Flipped play horizontally");
+      render();
+    }
+
+    function setupArmBandEditor() {
+      const container = document.getElementById('qbBandSlotsContainer');
+      const selector = document.getElementById('qbCardSelector');
+      if (!container || !selector) return;
+
+      const cardIdx = parseInt(selector.value, 10) || 0;
+      const isSetB = (cardIdx === 2 || cardIdx === 3 || cardIdx === 6 || cardIdx === 7);
+      const startNum = isSetB ? 13 : 1;
+      const sourceCardIdx = isSetB ? 2 : 0;
+
+      const armBandData = loadArmBandSlots();
+      const currentCard = armBandData[sourceCardIdx] || Array(12).fill(null);
+      const allPlays = loadSavedPlays();
+
+      container.innerHTML = '';
+
+      for (let i = 0; i < 12; i++) {
+        const slotNum = startNum + i;
+        const assigned = currentCard[i];
+
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 bg-slate-950/70 p-1.5 rounded-lg border border-slate-800';
+
+        row.innerHTML = `
+          <div class="w-7 h-6 rounded ${isSetB ? 'bg-sky-500' : 'bg-amber-500'} text-slate-950 font-black text-xs flex items-center justify-center font-chalk shrink-0">
+            ${slotNum}
+          </div>
+          <select class="armband-slot-select flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500 font-medium" data-slot="${i}">
+            <option value="">-- Empty Slot --</option>
+            ${allPlays.map((p, pIdx) => `<option value="${p.id}" ${assigned && assigned.playId === p.id ? 'selected' : ''}>#${pIdx + 1} - ${p.name} (${resolvePlayFormationName(p)})</option>`).join('')}
+          </select>
+        `;
+
+        row.querySelector('.armband-slot-select').addEventListener('change', (e) => {
+          const pId = e.target.value;
+          const found = allPlays.find(p => p.id === pId);
+          currentCard[i] = found ? {
+            playId: found.id,
+            name: found.name,
+            formation: resolvePlayFormationName(found),
+            type: found.type || 'run'
+          } : null;
+
+          armBandData[sourceCardIdx] = currentCard;
+          syncArmBandCards(armBandData);
+          saveArmBandSlots(armBandData);
+          renderArmBandPreview();
+        });
+
+        container.appendChild(row);
+      }
+
+      renderArmBandPreview();
+    }
+
+    function renderArmBandPreview() {
+      const preview = document.getElementById('qbCardPreviewDisplay');
+      const selector = document.getElementById('qbCardSelector');
+      if (!preview || !selector) return;
+
+      const cardIdx = parseInt(selector.value, 10) || 0;
+      const isSetB = (cardIdx === 2 || cardIdx === 3 || cardIdx === 6 || cardIdx === 7);
+      const startNum = isSetB ? 13 : 1;
+      const cardTitle = isSetB ? 'CARD SET B (PLAYS 13–24)' : 'CARD SET A (PLAYS 1–12)';
+
+      const armBandData = loadArmBandSlots();
+      const card = armBandData[cardIdx] || Array(12).fill(null);
+
+      const col1 = card.slice(0, 6);
+      const col2 = card.slice(6, 12);
+
+      const renderCol = (items, offset) => `
+        <div class="space-y-1">
+          ${items.map((item, idx) => {
+            const num = startNum + offset + idx;
+            return `
+              <div class="flex items-center justify-between text-[9px] leading-tight border-b border-slate-200 pb-0.5">
+                <div class="flex items-center space-x-1 truncate max-w-[115px]">
+                  <span class="w-3.5 h-3.5 rounded bg-slate-900 text-white font-bold flex items-center justify-center text-[8px] shrink-0 font-chalk">${num}</span>
+                  <span class="font-bold text-slate-900 truncate">${item ? item.name : '<span class="text-slate-400 italic">Open</span>'}</span>
+                </div>
+                <span class="text-[7.5px] font-extrabold uppercase px-1 rounded ${item?.type === 'run' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900'} shrink-0 ml-0.5">
+                  ${item ? (item.type || 'RUN') : '--'}
+                </span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      preview.innerHTML = `
+        <div class="flex items-center justify-between pb-1 mb-1.5 border-b-2 border-black font-chalk">
+          <span class="text-[10px] font-black uppercase tracking-wider">${cardTitle}</span>
+          <span class="text-[9px] font-bold bg-black text-white px-1.5 rounded">CARD #${cardIdx + 1}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          ${renderCol(col1, 0)}
+          ${renderCol(col2, 6)}
+        </div>
+      `;
+    }
+
+    function generate8CardArmBandPrintSheet() {
+      const armBandData = loadArmBandSlots();
+      const sheet = document.createElement('div');
+      sheet.className = 'armband-print-sheet';
+
+      function renderPrintCol(items, offset, startNum) {
+        return `
+          <div class="space-y-1">
+            ${items.map((p, idx) => {
+              const num = startNum + offset + idx;
+              return `
+                <div class="flex items-center justify-between text-[8.5pt] leading-tight border-b border-slate-200 pb-0.5">
+                  <div class="flex items-center space-x-1 truncate max-w-[125px]">
+                    <span class="w-4 h-4 rounded bg-slate-900 text-white font-bold flex items-center justify-center text-[7.5pt] shrink-0 font-chalk">${num}</span>
+                    <span class="font-bold text-slate-950 truncate">${p ? p.name : '<span class="text-slate-400 italic">--</span>'}</span>
+                  </div>
+                  <span class="text-[7pt] font-black uppercase tracking-wider px-1 rounded ${p?.type === 'run' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900'} shrink-0 ml-1">
+                    ${p ? (p.type || 'RUN') : '--'}
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      for (let c = 0; c < 8; c++) {
+        const isSetB = (c === 2 || c === 3 || c === 6 || c === 7);
+        const startNum = isSetB ? 13 : 1;
+        const cardTitle = isSetB ? 'CARD SET B (PLAYS 13–24)' : 'CARD SET A (PLAYS 1–12)';
+
+        const card = armBandData[c] || Array(12).fill(null);
+        const col1 = card.slice(0, 6);
+        const col2 = card.slice(6, 12);
+
+        const cardEl = document.createElement('div');
+        cardEl.className = 'armband-card-print h-full';
+
+        cardEl.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between pb-1 mb-1.5 border-b-2 border-black font-chalk">
+              <span class="text-[9pt] font-black uppercase tracking-wider">${cardTitle}</span>
+              <span class="text-[8pt] font-bold bg-black text-white px-1.5 rounded">CARD #${c + 1}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              ${renderPrintCol(col1, 0, startNum)}
+              ${renderPrintCol(col2, 6, startNum)}
+            </div>
+          </div>
+          <div class="text-[6.5pt] text-slate-500 text-right pt-0.5 border-t border-slate-200">
+            ✂ 3" × 5" QB WRIST COACH
+          </div>
+        `;
+        sheet.appendChild(cardEl);
+      }
+      return sheet;
+    }
+
+    function populateFormationDropdowns() {
+      const customs = loadCustomFormations();
+      const allFormations = { ...FORMATION_PRESETS, ...customs };
+      const plays = loadSavedPlays();
+
+      const filterSelect = document.getElementById('formationFilterSelect');
+      if (filterSelect) {
+        filterSelect.innerHTML = `<option value="ALL">All Formations (${plays.length})</option>`;
+        Object.keys(allFormations).forEach(key => {
+          const count = plays.filter(p => p.formationKey === key).length;
+          filterSelect.innerHTML += `<option value="${key}">${getFormationName(key)} (${count})</option>`;
+        });
+        filterSelect.value = activeFormationFilter;
+      }
+
+      ['newPlayFormationSelect', 'saveAsFormationSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          Object.keys(allFormations).forEach(key => {
+            el.innerHTML += `<option value="${key}">${getFormationName(key)}</option>`;
+          });
+          el.value = currentFormationKey;
+        }
+      });
+
+      const customContainer = document.getElementById('customFormationsContainer');
+      if (customContainer) {
+        customContainer.innerHTML = '';
+        const customKeys = Object.keys(customs);
+        if (customKeys.length > 0) {
+          customKeys.forEach(k => {
+            const btn = document.createElement('div');
+            btn.className = 'flex items-center justify-between p-2 rounded-lg bg-slate-800/90 border border-slate-700 text-xs';
+            btn.innerHTML = `
+              <button class="load-custom-form text-left truncate flex-1 font-bold text-sky-400">
+                ${customs[k].name}
+              </button>
+              <button class="delete-custom-form text-slate-500 hover:text-red-400 p-1 text-xs">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            `;
+            btn.querySelector('.load-custom-form').addEventListener('click', () => loadFormation(k));
+            btn.querySelector('.delete-custom-form').addEventListener('click', () => {
+              delete customs[k];
+              saveCustomFormations(customs);
+              populateFormationDropdowns();
+              showToast("Deleted custom formation");
+            });
+            customContainer.appendChild(btn);
+          });
+        }
+      }
+    }
+
+    function updateHeaderPlayTitle() {
+      const header = document.getElementById('activePlayNameHeader');
+      if (header) {
+        header.textContent = `${currentFormationName} - Play`;
+      }
+    }
+
+    function updatePlayTypeUI() {
+      const select = document.getElementById('activePlayTypeSelect');
+      if (!select) return;
+      select.value = currentPlayType;
+
+      if (currentPlayType === 'run') {
+        select.className = 'bg-amber-950/90 border border-amber-500/70 text-[10px] font-black uppercase rounded px-1.5 py-0.5 text-amber-300 focus:outline-none cursor-pointer shadow-sm';
+      } else if (currentPlayType === 'rpo') {
+        select.className = 'bg-purple-950/90 border border-purple-500/70 text-[10px] font-black uppercase rounded px-1.5 py-0.5 text-purple-300 focus:outline-none cursor-pointer shadow-sm';
+      } else if (currentPlayType === 'screen') {
+        select.className = 'bg-teal-950/90 border border-teal-500/70 text-[10px] font-black uppercase rounded px-1.5 py-0.5 text-teal-300 focus:outline-none cursor-pointer shadow-sm';
+      } else {
+        select.className = 'bg-sky-950/90 border border-sky-500/70 text-[10px] font-black uppercase rounded px-1.5 py-0.5 text-sky-300 focus:outline-none cursor-pointer shadow-sm';
+      }
+    }
+
+    function saveHistory() {
+      if (historyStack.length > 25) historyStack.shift();
+      historyStack.push(JSON.stringify(players));
+    }
+
+    function undoLastAction() {
+      if (historyStack.length === 0) {
+        showToast("Nothing to undo");
+        return;
+      }
+      triggerHaptic();
+      const prev = historyStack.pop();
+      players = JSON.parse(prev);
+      selectedPlayer = null;
+      updateInspector();
+      render();
+      showToast("Undone last action");
+    }
+
+    function triggerHaptic() {
+      if (navigator.vibrate) {
+        try { navigator.vibrate(20); } catch (e) {}
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastMessage');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.remove('opacity-0');
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => {
+        toast.classList.add('opacity-0');
+      }, 2200);
+    }
+
+    function updatePrintPreview() {
+      const preview = document.getElementById('printPreviewArea');
+      const scope = document.getElementById('printScopeSelect').value;
+      const theme = document.getElementById('printThemeSelect').value;
+      const layout = document.getElementById('printLayoutSelect').value;
+      const orientation = document.getElementById('printOrientationSelect')?.value || 'landscape';
+      if (!preview) return;
+
+      const pageStyle = document.getElementById('printPageOrientationStyle');
+      if (pageStyle) {
+        if (scope === 'armband') {
+          pageStyle.textContent = `@media print { @page { size: letter portrait; margin: 0.25in; } }`;
+        } else if (orientation === 'landscape') {
+          pageStyle.textContent = `@media print { @page { size: letter landscape; margin: 0.3in; } }`;
+        } else {
+          pageStyle.textContent = `@media print { @page { size: letter portrait; margin: 0.25in; } }`;
+        }
+      }
+
+      preview.innerHTML = '';
+
+      if (scope === 'armband') {
+        preview.appendChild(generate8CardArmBandPrintSheet());
+        return;
+      }
+
+      const allPlays = loadSavedPlays();
+      let targetPlays = [];
+
+      if (scope === 'current') {
+        targetPlays = [getRelativePlayData()];
+      } else if (scope === 'formation') {
+        targetPlays = allPlays.filter(p => p.formationKey === currentFormationKey);
+        if (targetPlays.length === 0) targetPlays = [getRelativePlayData()];
+      } else {
+        targetPlays = allPlays;
+      }
+
+      const containerGrid = document.createElement('div');
+      containerGrid.className = layout === '2up' ? 'print-grid-2up' : 'print-grid-1up';
+
+      const isLandscape = (orientation === 'landscape');
+      const baseCanvasWidth = isLandscape ? (layout === '2up' ? 980 : 1080) : 880;
+      const baseCanvasHeight = isLandscape ? (layout === '2up' ? 380 : 470) : 420;
+
+      targetPlays.forEach((p) => {
+        const card = document.createElement('div');
+        card.className = 'print-play-card bg-white text-black p-4 rounded-xl border border-slate-300 shadow-sm mb-4';
+
+        const headerEl = document.createElement('div');
+        headerEl.className = 'flex items-center justify-between border-b-2 border-black pb-1 mb-2 font-chalk';
+        headerEl.innerHTML = `
+          <div>
+            <span class="text-xs uppercase tracking-wider text-slate-600 font-sans font-bold">${resolvePlayFormationName(p)}</span>
+            <h2 class="text-xl font-black text-black leading-tight">${p.name}</h2>
+          </div>
+          <span class="text-xs font-bold bg-black text-white px-2 py-0.5 rounded font-sans uppercase">${p.type || 'RUN'}</span>
+        `;
+        card.appendChild(headerEl);
+
+        let minX = -240;
+        let maxX = 240;
+        let minY = -175;
+        let maxY = 115;
+
+        if (p.players && p.players.length > 0) {
+          p.players.forEach(pl => {
+            minX = Math.min(minX, pl.x - 24);
+            maxX = Math.max(maxX, pl.x + 24);
+            minY = Math.min(minY, pl.y - 20);
+            maxY = Math.max(maxY, pl.y + 20);
+            if (pl.route && pl.route.points) {
+              pl.route.points.forEach(pt => {
+                minX = Math.min(minX, pt.x - 22);
+                maxX = Math.max(maxX, pt.x + 22);
+                minY = Math.min(minY, pt.y - 22);
+                maxY = Math.max(maxY, pt.y + 22);
+              });
+            }
+          });
+        }
+
+        const requiredHalfWidth = Math.max(Math.abs(minX), Math.abs(maxX)) + 40;
+        const requiredHeight = (maxY - minY) + 40;
+
+        const scaleX = ((baseCanvasWidth / 2) - 30) / Math.max(requiredHalfWidth, 250);
+        const scaleY = (baseCanvasHeight - 65) / Math.max(requiredHeight, 220);
+        const fitScale = Math.min(1.05, Math.min(scaleX, scaleY));
+
+        const canvasEl = document.createElement('canvas');
+        canvasEl.width = baseCanvasWidth;
+        canvasEl.height = baseCanvasHeight;
+        canvasEl.className = 'w-full rounded border border-slate-300 mb-2 block';
+        const pCtx = canvasEl.getContext('2d');
+
+        const metrics = getFieldMetrics(canvasEl.height);
+        const scaledPxPerYard = metrics.pxPerYard * fitScale;
+        const losY = Math.round(canvasEl.height - (Math.max(10, (maxY + 25) * fitScale)));
+        const center = { x: Math.round(canvasEl.width / 2), y: losY };
+
+        if (theme === 'ink_saver') {
+          drawInkSaverField(pCtx, canvasEl.width, canvasEl.height, scaledPxPerYard, losY);
+        } else {
+          drawField(pCtx, canvasEl.width, canvasEl.height, 'turf', scaledPxPerYard, losY);
+        }
+
+        if (p.players) {
+          p.players.forEach(pl => {
+            if (pl.route && pl.route.points) {
+              const routePts = pl.route.points.map(pt => ({
+                x: center.x + (pt.x * fitScale),
+                y: center.y + (pt.y * fitScale)
+              }));
+              drawRoute(pCtx, { ...pl.route, points: routePts });
+            }
+          });
+          p.players.forEach(pl => {
+            drawPlayer(pCtx, {
+              ...pl,
+              x: center.x + (pl.x * fitScale),
+              y: center.y + (pl.y * fitScale)
+            });
+          });
+        }
+        card.appendChild(canvasEl);
+
+        if (p.notes && p.notes.trim()) {
+          const notesEl = document.createElement('div');
+          notesEl.className = 'text-[11px] text-slate-900 bg-amber-50/80 p-2 rounded border border-amber-200 mt-2 font-sans leading-relaxed';
+          notesEl.innerHTML = `<span class="font-bold text-amber-950 uppercase tracking-wide mr-1.5"><i class="fa-solid fa-clipboard-list mr-1"></i>Coaching Notes:</span> ${p.notes.replace(/\n/g, '<br>')}`;
+          card.appendChild(notesEl);
+        }
+
+        containerGrid.appendChild(card);
+      });
+
+      preview.appendChild(containerGrid);
+    }
+
+    function setupEventListeners() {
+      const tabField = document.getElementById('tabFieldBtn');
+      const tabArm = document.getElementById('tabArmBandBtn');
+      const fieldView = document.getElementById('fieldViewContainer');
+      const armView = document.getElementById('armBandViewContainer');
+
+      tabField?.addEventListener('click', () => {
+        tabField.className = 'px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white shadow transition flex items-center space-x-1.5';
+        tabArm.className = 'px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5';
+        fieldView.classList.remove('hidden');
+        armView.classList.add('hidden');
+        resizeCanvas();
+      });
+
+      tabArm?.addEventListener('click', () => {
+        tabArm.className = 'px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-600 text-white shadow transition flex items-center space-x-1.5';
+        tabField.className = 'px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5';
+        armView.classList.remove('hidden');
+        fieldView.classList.add('hidden');
+        setupArmBandEditor();
+      });
+
+      function setActiveTool(tool) {
+        if (isDrawing) finishDrawingRoute();
+        activeTool = tool;
+        document.querySelectorAll('.tool-btn, .mobile-tool-btn').forEach(btn => {
+          if (btn.dataset.tool === tool) {
+            btn.classList.add('bg-emerald-600', 'text-white', 'shadow');
+            btn.classList.remove('bg-slate-800', 'text-slate-300', 'text-slate-400');
+          } else {
+            btn.classList.remove('bg-emerald-600', 'text-white', 'shadow');
+            btn.classList.add(btn.classList.contains('mobile-tool-btn') ? 'text-slate-400' : 'bg-slate-800');
+          }
+        });
+        updateHUDStatus();
+        showToast(`Tool: ${tool.toUpperCase()}`);
+      }
+
+      document.querySelectorAll('.tool-btn, .mobile-tool-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          triggerHaptic();
+          if (b.dataset.tool) setActiveTool(b.dataset.tool);
+        });
+      });
+
+      document.getElementById('hudSwitchMoveBtn')?.addEventListener('click', () => setActiveTool('select'));
+      document.getElementById('hudFinishRouteBtn')?.addEventListener('click', () => finishDrawingRoute());
+
+      document.getElementById('quickPassProBtn')?.addEventListener('click', applyAllLinemenPassPro);
+      document.getElementById('quickRunBlockLeftBtn')?.addEventListener('click', () => applyLinemenZoneBlock('left'));
+      document.getElementById('quickRunBlockRightBtn')?.addEventListener('click', () => applyLinemenZoneBlock('right'));
+      document.getElementById('quickClearAllRoutesBtn')?.addEventListener('click', clearAllRoutesOnField);
+
+      document.getElementById('headerNotesToggleBtn')?.addEventListener('click', () => toggleNotesDrawer());
+      document.getElementById('toolbarNotesToggleBtn')?.addEventListener('click', () => toggleNotesDrawer());
+      document.getElementById('floatingNotesBtn')?.addEventListener('click', () => toggleNotesDrawer());
+      document.getElementById('mobileNotesToggleBtn')?.addEventListener('click', () => toggleNotesDrawer());
+      document.getElementById('closeNotesDrawerBtn')?.addEventListener('click', () => toggleNotesDrawer(false));
+
+      const notesTextarea = document.getElementById('playNotesTextarea');
+      notesTextarea?.addEventListener('input', () => {
+        currentPlayNotes = notesTextarea.value.trim();
+        updateNotesCounter();
+        updateNotesIndicators();
+      });
+
+      document.getElementById('clearNotesBtn')?.addEventListener('click', () => {
+        if (notesTextarea) notesTextarea.value = '';
+        currentPlayNotes = '';
+        updateNotesCounter();
+        updateNotesIndicators();
+        showToast("Cleared notes");
+      });
+
+      document.getElementById('saveNotesDrawerBtn')?.addEventListener('click', () => {
+        if (notesTextarea) currentPlayNotes = notesTextarea.value.trim();
+        saveCurrentPlay();
+        toggleNotesDrawer(false);
+      });
+
+      document.getElementById('mobileRouteTreeBtn')?.addEventListener('click', () => {
+        if (!selectedPlayer) {
+          selectedPlayer = players.find(p => p.type === 'offense' && !p.isLine) || players[0];
+          updateInspector();
+          render();
+        }
+        document.getElementById('mobileRouteSheet')?.classList.toggle('hidden');
+      });
+
+      document.getElementById('sheetClearRouteBtn')?.addEventListener('click', () => {
+        if (selectedPlayer) {
+          saveHistory();
+          selectedPlayer.route = null;
+          showToast(`Cleared route for ${selectedPlayer.label}`);
+          render();
+        }
+      });
+
+      document.querySelectorAll('.quick-route-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          applyQuickRoutePreset(chip.dataset.quick);
+        });
+      });
+
+      document.getElementById('inspOpenQuickRoutesBtn')?.addEventListener('click', () => {
+        document.getElementById('mobileRouteSheet')?.classList.toggle('hidden');
+      });
+
+      document.getElementById('closeQuickRouteBtn')?.addEventListener('click', () => {
+        document.getElementById('mobileRouteSheet')?.classList.add('hidden');
+      });
+
+      document.getElementById('closeInspectorBtn')?.addEventListener('click', () => {
+        selectedPlayer = null;
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('inspClearRouteBtn')?.addEventListener('click', () => {
+        if (selectedPlayer) {
+          saveHistory();
+          selectedPlayer.route = null;
+          showToast(`Cleared route for ${selectedPlayer.label}`);
+          updateInspector();
+          render();
+        }
+      });
+
+      document.getElementById('inspRoleInput')?.addEventListener('change', (e) => {
+        if (selectedPlayer) {
+          selectedPlayer.label = e.target.value.toUpperCase();
+          render();
+        }
+      });
+
+      document.getElementById('floatingUndoBtn')?.addEventListener('click', undoLastAction);
+      document.getElementById('floatingFlipBtn')?.addEventListener('click', () => document.getElementById('flipPlayBtn')?.click());
+
+      document.getElementById('floatingZoomInBtn')?.addEventListener('click', () => {
+        triggerHaptic();
+        setZoomAtCenter(viewTransform.scale * 1.25);
+      });
+
+      document.getElementById('floatingZoomOutBtn')?.addEventListener('click', () => {
+        triggerHaptic();
+        setZoomAtCenter(viewTransform.scale * 0.8);
+      });
+
+      document.getElementById('floatingZoomResetBtn')?.addEventListener('click', resetCameraView);
+
+      const mobileMenu = document.getElementById('mobileMenuModal');
+      document.getElementById('mobileMenuBtn')?.addEventListener('click', () => mobileMenu?.classList.remove('hidden'));
+      document.getElementById('closeMobileMenuBtn')?.addEventListener('click', () => mobileMenu?.classList.add('hidden'));
+
+      document.getElementById('mobActionNotes')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        toggleNotesDrawer(true);
+      });
+      document.getElementById('mobActionNewPlay')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('newPlayBtn')?.click();
+      });
+      document.getElementById('mobActionSaveAs')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('saveAsBtn')?.click();
+      });
+      document.getElementById('mobActionFlip')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        flipFieldHorizontally();
+      });
+      document.getElementById('mobActionPrint')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('printPlaybookBtn')?.click();
+      });
+      document.getElementById('mobActionArmBand')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('tabArmBandBtn')?.click();
+      });
+      document.getElementById('mobActionTheme')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        fieldTheme = (fieldTheme === 'turf') ? 'chalkboard' : 'turf';
+        render();
+      });
+      document.getElementById('mobActionBackup')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('backupJsonBtn')?.click();
+      });
+      document.getElementById('mobActionOpen')?.addEventListener('click', () => {
+        mobileMenu?.classList.add('hidden');
+        document.getElementById('openJsonBtn')?.click();
+      });
+
+      document.getElementById('runPlayBtn')?.addEventListener('click', runSimulation);
+      document.getElementById('resetPlayBtn')?.addEventListener('click', stopSimulation);
+      document.getElementById('mobileRunPlayBtn')?.addEventListener('click', () => {
+        if (isSimulating) stopSimulation();
+        else runSimulation();
+      });
+
+      document.getElementById('savePlayBtn')?.addEventListener('click', saveCurrentPlay);
+      document.getElementById('mobileSaveBtn')?.addEventListener('click', saveCurrentPlay);
+      document.getElementById('flipPlayBtn')?.addEventListener('click', flipFieldHorizontally);
+
+      document.getElementById('themeTurfBtn')?.addEventListener('click', () => {
+        fieldTheme = 'turf';
+        render();
+      });
+      document.getElementById('themeChalkboardBtn')?.addEventListener('click', () => {
+        fieldTheme = 'chalkboard';
+        render();
+      });
+
+      document.getElementById('def43Btn')?.addEventListener('click', () => loadDefense('4-3'));
+      document.getElementById('def34Btn')?.addEventListener('click', () => loadDefense('3-4'));
+      document.getElementById('def53Btn')?.addEventListener('click', () => loadDefense('5-3'));
+      document.getElementById('def62Btn')?.addEventListener('click', () => loadDefense('6-2'));
+      document.getElementById('defNickelBtn')?.addEventListener('click', () => loadDefense('nickel'));
+      document.getElementById('defGoalLineBtn')?.addEventListener('click', () => loadDefense('goalline'));
+
+      document.querySelectorAll('.formation-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          loadFormation(btn.dataset.formation, false);
+          if (window.innerWidth < 1024) {
+            document.getElementById('sidebarDrawer')?.classList.add('-translate-x-full');
+            document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+          }
+        });
+      });
+
+      document.getElementById('formationFilterSelect')?.addEventListener('change', (e) => {
+        activeFormationFilter = e.target.value;
+        refreshSavedPlaysList();
+      });
+      document.getElementById('showAllPlaysBtn')?.addEventListener('click', () => {
+        setFormationFilter('ALL');
+      });
+
+      const sidebar = document.getElementById('sidebarDrawer');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      document.getElementById('sidebarToggleBtn')?.addEventListener('click', () => {
+        sidebar?.classList.toggle('-translate-x-full');
+        backdrop?.classList.toggle('hidden');
+      });
+      document.getElementById('closeSidebarBtn')?.addEventListener('click', () => {
+        sidebar?.classList.add('-translate-x-full');
+        backdrop?.classList.add('hidden');
+      });
+      backdrop?.addEventListener('click', () => {
+        sidebar?.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      });
+
+      const newPlayModal = document.getElementById('newPlayModal');
+      const openNewPlay = () => {
+        document.getElementById('newPlayNameInput').value = `${currentFormationName} - Run`;
+        document.getElementById('newPlayNotesInput').value = '';
+        newPlayModal?.classList.remove('hidden');
+      };
+      document.getElementById('newPlayBtn')?.addEventListener('click', openNewPlay);
+      document.getElementById('sidebarNewPlayBtn')?.addEventListener('click', openNewPlay);
+      document.getElementById('cancelNewPlayBtn')?.addEventListener('click', () => newPlayModal?.classList.add('hidden'));
+      document.getElementById('cancelNewPlayBtn2')?.addEventListener('click', () => newPlayModal?.classList.add('hidden'));
+
+      document.getElementById('confirmNewPlayBtn')?.addEventListener('click', () => {
+        const name = document.getElementById('newPlayNameInput').value || 'New Play';
+        const formKey = document.getElementById('newPlayFormationSelect').value;
+        const defKey = document.getElementById('newPlayDefenseSelect').value;
+        const playType = document.getElementById('newPlayTypeSelect')?.value || 'run';
+        const notes = document.getElementById('newPlayNotesInput')?.value || '';
+
+        newPlayModal?.classList.add('hidden');
+        currentPlayType = playType;
+        setPlayNotes(notes);
+        updatePlayTypeUI();
+        loadFormation(formKey, false);
+        loadDefense(defKey);
+
+        document.getElementById('activePlayNameHeader').textContent = name;
+        showToast(`Created ${playType.toUpperCase()} play: ${name}`);
+      });
+
+      const saveAsModal = document.getElementById('saveAsModal');
+      document.getElementById('saveAsBtn')?.addEventListener('click', () => {
+        const curName = document.getElementById('activePlayNameHeader').textContent;
+        document.getElementById('saveAsNameInput').value = curName + ' (Copy)';
+        const typeSelect = document.getElementById('saveAsTypeSelect');
+        if (typeSelect) typeSelect.value = currentPlayType;
+        const notesInput = document.getElementById('saveAsNotesInput');
+        if (notesInput) notesInput.value = currentPlayNotes;
+        saveAsModal?.classList.remove('hidden');
+      });
+      document.getElementById('cancelSaveAsBtn')?.addEventListener('click', () => saveAsModal?.classList.add('hidden'));
+      document.getElementById('cancelSaveAsBtn2')?.addEventListener('click', () => saveAsModal?.classList.add('hidden'));
+
+      document.getElementById('confirmSaveAsBtn')?.addEventListener('click', () => {
+        const newName = document.getElementById('saveAsNameInput').value || 'Copy Play';
+        const formKey = document.getElementById('saveAsFormationSelect').value;
+        const targetType = document.getElementById('saveAsTypeSelect')?.value || currentPlayType;
+        const targetNotes = document.getElementById('saveAsNotesInput')?.value || currentPlayNotes;
+        const shouldFlip = document.getElementById('saveAsFlipCheckbox').checked;
+
+        if (shouldFlip) {
+          flipFieldHorizontally();
+        }
+
+        currentPlayType = targetType;
+        setPlayNotes(targetNotes);
+        updatePlayTypeUI();
+
+        const playData = getRelativePlayData(newName, formKey);
+        const plays = loadSavedPlays();
+        plays.unshift(playData);
+        savePlaysToStorage(plays);
+
+        saveAsModal?.classList.add('hidden');
+        document.getElementById('activePlayNameHeader').textContent = newName;
+        setFormationFilter(formKey);
+        showToast(`Saved copy: "${newName}"`);
+      });
+
+      document.getElementById('activePlayTypeSelect')?.addEventListener('change', (e) => {
+        currentPlayType = e.target.value;
+        updatePlayTypeUI();
+        showToast(`Play type: ${currentPlayType.toUpperCase()}`);
+      });
+
+      const saveFormModal = document.getElementById('saveFormationModal');
+      document.getElementById('saveAsFormationBtn')?.addEventListener('click', () => {
+        saveFormModal?.classList.remove('hidden');
+      });
+      document.getElementById('cancelSaveFormationBtn')?.addEventListener('click', () => saveFormModal?.classList.add('hidden'));
+      document.getElementById('cancelSaveFormationBtn2')?.addEventListener('click', () => saveFormModal?.classList.add('hidden'));
+
+      document.getElementById('confirmSaveFormationBtn')?.addEventListener('click', () => {
+        const name = document.getElementById('newFormationNameInput').value.trim();
+        if (!name) return;
+        const center = getFieldCenter();
+        const customs = loadCustomFormations();
+        const key = 'form_' + Date.now();
+
+        const offensePlayers = players.filter(p => p.type === 'offense').map(p => ({
+          id: p.id,
+          label: p.label,
+          role: p.role,
+          type: 'offense',
+          isLine: !!p.isLine,
+          x: p.x - center.x,
+          y: p.y - center.y
+        }));
+
+        customs[key] = { name, players: offensePlayers };
+        saveCustomFormations(customs);
+        saveFormModal?.classList.add('hidden');
+
+        currentFormationKey = key;
+        currentFormationName = name;
+        populateFormationDropdowns();
+        setFormationFilter(key);
+        updateHeaderPlayTitle();
+        showToast(`Saved set: ${name}`);
+      });
+
+      document.getElementById('backupJsonBtn')?.addEventListener('click', () => {
+        const payload = {
+          version: '7.0',
+          exportedAt: new Date().toISOString(),
+          plays: loadSavedPlays(),
+          customFormations: loadCustomFormations(),
+          armband: loadArmBandSlots()
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `playmaker_playbook_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Downloaded playbook (.json)");
+      });
+
+      const fileInput = document.getElementById('jsonFileInput');
+      document.getElementById('openJsonBtn')?.addEventListener('click', () => fileInput?.click());
+
+      let pendingJsonData = null;
+      fileInput?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data && (data.plays || Array.isArray(data))) {
+              pendingJsonData = data;
+              const count = Array.isArray(data) ? data.length : (data.plays?.length || 0);
+              document.getElementById('jsonImportStatsText').textContent = `Detected ${count} plays in imported file.`;
+              document.getElementById('jsonImportModal')?.classList.remove('hidden');
+            } else {
+              showToast("Invalid Playmaker format");
+            }
+          } catch (err) {
+            showToast("Failed to parse JSON file");
+          }
+        };
+        reader.readAsText(file);
+        fileInput.value = '';
+      });
+
+      document.getElementById('cancelJsonImportBtn')?.addEventListener('click', () => {
+        document.getElementById('jsonImportModal')?.classList.add('hidden');
+        pendingJsonData = null;
+      });
+      document.getElementById('cancelJsonImportBtn2')?.addEventListener('click', () => {
+        document.getElementById('jsonImportModal')?.classList.add('hidden');
+        pendingJsonData = null;
+      });
+
+      document.getElementById('confirmMergeJsonBtn')?.addEventListener('click', () => {
+        if (!pendingJsonData) return;
+        const currentPlays = loadSavedPlays();
+        const incomingPlays = Array.isArray(pendingJsonData) ? pendingJsonData : (pendingJsonData.plays || []);
+        const merged = [...incomingPlays, ...currentPlays];
+        savePlaysToStorage(merged);
+
+        if (pendingJsonData.customFormations) {
+          const customs = { ...loadCustomFormations(), ...pendingJsonData.customFormations };
+          saveCustomFormations(customs);
+        }
+
+        document.getElementById('jsonImportModal')?.classList.add('hidden');
+        populateFormationDropdowns();
+        refreshSavedPlaysList();
+        showToast(`Merged ${incomingPlays.length} plays`);
+      });
+
+      document.getElementById('confirmReplaceJsonBtn')?.addEventListener('click', () => {
+        if (!pendingJsonData) return;
+        const incomingPlays = Array.isArray(pendingJsonData) ? pendingJsonData : (pendingJsonData.plays || []);
+        savePlaysToStorage(incomingPlays);
+
+        if (pendingJsonData.customFormations) {
+          saveCustomFormations(pendingJsonData.customFormations);
+        }
+        if (pendingJsonData.armband) {
+          saveArmBandSlots(pendingJsonData.armband);
+        }
+
+        document.getElementById('jsonImportModal')?.classList.add('hidden');
+        populateFormationDropdowns();
+        refreshSavedPlaysList();
+        if (incomingPlays.length > 0) loadPlayIntoEditor(incomingPlays[0]);
+        showToast(`Replaced playbook with ${incomingPlays.length} plays`);
+      });
+
+      const printModal = document.getElementById('printModal');
+      document.getElementById('printPlaybookBtn')?.addEventListener('click', () => {
+        updatePrintPreview();
+        printModal?.classList.remove('hidden');
+      });
+      document.getElementById('printArmBandDirectBtn')?.addEventListener('click', () => {
+        document.getElementById('printScopeSelect').value = 'armband';
+        updatePrintPreview();
+        printModal?.classList.remove('hidden');
+      });
+      document.getElementById('closePrintModalBtn')?.addEventListener('click', () => {
+        printModal?.classList.add('hidden');
+      });
+
+      ['printScopeSelect', 'printLayoutSelect', 'printThemeSelect', 'printOrientationSelect'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+          const scope = document.getElementById('printScopeSelect')?.value;
+          const orientSelect = document.getElementById('printOrientationSelect');
+          if (orientSelect) {
+            if (scope === 'armband') {
+              orientSelect.value = 'portrait';
+              orientSelect.disabled = true;
+            } else {
+              orientSelect.disabled = false;
+            }
+          }
+          updatePrintPreview();
+        });
+      });
+
+      document.getElementById('confirmPrintBtn')?.addEventListener('click', () => {
+        window.print();
+      });
+
+      document.getElementById('qbCardSelector')?.addEventListener('change', setupArmBandEditor);
+      document.getElementById('clearArmBandBtn')?.addEventListener('click', () => {
+        const selector = document.getElementById('qbCardSelector');
+        const cardIdx = parseInt(selector.value, 10) || 0;
+        const isSetB = (cardIdx === 2 || cardIdx === 3 || cardIdx === 6 || cardIdx === 7);
+        const sourceIdx = isSetB ? 2 : 0;
+
+        const armData = loadArmBandSlots();
+        armData[sourceIdx] = Array(12).fill(null);
+        syncArmBandCards(armData);
+        saveArmBandSlots(armData);
+        setupArmBandEditor();
+        showToast(`Cleared ${isSetB ? 'Card Set B' : 'Card Set A'}`);
+      });
+
+      document.getElementById('autoFillArmBandBtn')?.addEventListener('click', () => {
+        const selector = document.getElementById('qbCardSelector');
+        const cardIdx = parseInt(selector.value, 10) || 0;
+        const isSetB = (cardIdx === 2 || cardIdx === 3 || cardIdx === 6 || cardIdx === 7);
+        const sourceIdx = isSetB ? 2 : 0;
+
+        const armData = loadArmBandSlots();
+        const plays = loadSavedPlays().filter(p => p.formationKey === currentFormationKey);
+
+        for (let i = 0; i < 12; i++) {
+          const p = plays[i % plays.length];
+          armData[sourceIdx][i] = p ? { playId: p.id, name: p.name, formation: resolvePlayFormationName(p), type: p.type } : null;
+        }
+        syncArmBandCards(armData);
+        saveArmBandSlots(armData);
+        setupArmBandEditor();
+        showToast(`Filled ${isSetB ? 'Set B' : 'Set A'} from active formation`);
+      });
+
+      document.getElementById('distributeArmBandBtn')?.addEventListener('click', () => {
+        const plays = loadSavedPlays();
+        const armData = Array(8).fill(null).map(() => Array(12).fill(null));
+
+        for (let i = 0; i < 12; i++) {
+          const p = plays[i];
+          armData[0][i] = p ? { playId: p.id, name: p.name, formation: resolvePlayFormationName(p), type: p.type } : null;
+        }
+
+        for (let i = 0; i < 12; i++) {
+          const p = plays[12 + i];
+          armData[2][i] = p ? { playId: p.id, name: p.name, formation: resolvePlayFormationName(p), type: p.type } : null;
+        }
+
+        syncArmBandCards(armData);
+        saveArmBandSlots(armData);
+        setupArmBandEditor();
+        showToast("Distributed Plays 1–24 across wristband cards");
+      });
+    }
+
+    // Window Load Bootstrap
+    window.addEventListener('load', () => {
+      populateFormationDropdowns();
+      setupEventListeners();
+      resizeCanvas();
+
+      const plays = loadSavedPlays();
+      if (plays && plays.length > 0) {
+        loadPlayIntoEditor(plays[0]);
+      } else {
+        loadFormation('single_wing_beast', false);
+        loadDefense('5-3');
+      }
+
+      setupArmBandEditor();
+      updateZoomBadge();
+      updateHUDStatus();
+      updatePlayTypeUI();
+    });
+  </script>
+</body>
+</html>
